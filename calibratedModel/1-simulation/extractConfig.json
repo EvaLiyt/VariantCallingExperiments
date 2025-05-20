@@ -1,0 +1,7 @@
+{
+  "tree_file": "treesFromPrior.trees",
+  "num_trees": 100,
+  "output_prefix": "tree_r",
+  "output_suffix": ".trees"
+}
+
