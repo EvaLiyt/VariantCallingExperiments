@@ -9,7 +9,7 @@ ref_path <- "/home/yil218/data/chr1.fna"
 output_base <- "./pileup"
 # Remove and recreate top-level output folder if exists
 if (dir.exists(output_base)) {
-  cat("🔁 Removing existing pileup folder:", output_base, "\n")
+  cat("Removing existing pileup folder:", output_base, "\n")
   unlink(output_base, recursive = TRUE)
 }
 dir.create(output_base)
@@ -96,19 +96,20 @@ for (file_path in readcount_files) {
         }
       }
 
-      rows_list[[row_idx]] <- list(
-        Name = "chr1",
-        Position = pos,
-        Ref = ref_base,
-        Count = count_sum,
-        ReadResults = read_result
-      )
+    rows_list[[row_idx]] <- list(
+      Name = "chr1",
+      Position = pos,
+      Ref = ref_base,
+      Count = count_sum,
+      ReadResults = read_result
+    )
+
       row_idx <- row_idx + 1
     }
 
     rows_list <- rows_list[1:(row_idx - 1)]
     if (length(rows_list) == 0) {
-      cat("⚠️  No valid sites for cell", i, "(", cell_names[i], "), skipping.\n")
+      cat("No valid sites for cell", i, "(", cell_names[i], "), skipping.\n")
       next
     }
 
@@ -117,13 +118,14 @@ for (file_path in readcount_files) {
     # Output file
     cell_name <- cell_names[i]
     output_file <- file.path(output_folder, paste0(cell_name, ".pileup"))
-    fwrite(cell_pileup, file = output_file, sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+      fwrite(cell_pileup, file = output_file, sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 
-    cat("✅", r_number, "cell", i, "(", cell_name, ") written to:", output_file, "\n")
+
+    cat(r_number, "cell", i, "(", cell_name, ") written to:", output_file, "\n")
   }
 
-  cat("✅ All pileups for", r_number, "written in",
+  cat("All pileups for", r_number, "written in",
       round(difftime(Sys.time(), start_time_all, units = "secs"), 2), "seconds.\n\n")
 }
 
-cat("🎉 All readcount files processed.\n")
+cat("All readcount files processed.\n")
