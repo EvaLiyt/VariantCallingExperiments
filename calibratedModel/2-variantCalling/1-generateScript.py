@@ -26,7 +26,11 @@ for r in range(100):
     min_depth = random.randint(2, 8)
     min_var = random.randint(1, min_depth - 1)
 
-   
+   # Write parameter file
+    parameter_file_path = os.path.join(repeat_dir, f"parameters_{repeat_name}.txt")
+    with open(parameter_file_path, "w") as param_file:
+        param_file.write(f"min_depth: {min_depth}\n")
+        param_file.write(f"min_var: {min_var}\n")
 
     slurm_header = textwrap.dedent(f"""\
     #!/bin/bash
