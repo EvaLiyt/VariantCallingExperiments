@@ -199,20 +199,20 @@ for (i in 0:99) {
   script <- glue('
 data {{
    // alignment
-    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
 }}
 model{{
     {simulation_parameters_simple_model}
-    tree ~ Yule(lambda=lambda, n=n);
+    tree ~ Yule(lambda=lambda, n=40);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
     rates ~ Dirichlet(conc=[1.0, 2.0, 1.0, 1.0, 2.0, 1.0]);
     Q = gt16(freq=π, rates=rates);
-    D ~ SparsePhyloCTMC(L=L, Q=Q, tree=tree, dataType=phasedGenotype(), mu=mu, root=D);
+    D ~ PhyloCTMC(L=L, Q=Q, tree=tree, dataType=phasedGenotype(), mu=mu);
     
     epsilon ~ Beta(alpha=2, beta=18);
     delta ~ Beta(alpha=1.5, beta=4.5);
@@ -233,20 +233,20 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
 }}
 model{{
     {simulation_parameters_simple_model}
-    tree ~ Yule(lambda=lambda, n=n);
+    tree ~ Yule(lambda=lambda, n=40);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
     rates ~ Dirichlet(conc=[1.0, 2.0, 1.0, 1.0, 2.0, 1.0]);
     Q = gt16(freq=π, rates=rates);
-    A ~ SparsePhyloCTMC(L=L, Q=Q, tree=tree, dataType=phasedGenotype(), mu=mu, root=D);
+    A ~ PhyloCTMC(L=L, Q=Q, tree=tree, dataType=phasedGenotype(), mu=mu);
 }}
 ')
   
@@ -262,7 +262,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readFasta(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -271,7 +271,7 @@ model{{
   
     {simulation_parameters_simple_model}
 
-    tree ~ Yule(lambda=lambda, n=n);
+    tree ~ Yule(lambda=lambda, n=40);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -296,7 +296,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readFasta(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -305,7 +305,7 @@ model{{
   
     {simulation_parameters_simple_model}
 
-    tree ~ Yule(lambda=lambda, n=n);
+    tree ~ Yule(lambda=lambda, n=40);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -445,7 +445,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
    // alignment
-    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -468,7 +468,7 @@ model{{
     rates ~ Dirichlet(conc=[1.0, 2.0, 1.0, 1.0, 2.0, 1.0]);
     Q = gt16(freq=π, rates=rates);
 
-    D ~ SparsePhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype(), root=D);
+    D ~ PhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype());
     
     epsilon ~ Beta(alpha=2, beta=18);
     delta ~ Beta(alpha=1.5, beta=4.5);
@@ -489,7 +489,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -511,7 +511,7 @@ model{{
     rates ~ Dirichlet(conc=[1.0, 2.0, 1.0, 1.0, 2.0, 1.0]);
     Q = gt16(freq=π, rates=rates);
 
-    A ~ SparsePhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype(), root=D);
+    A ~ PhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype());
 }}
 ')
   
@@ -527,7 +527,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readFasta(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -549,7 +549,7 @@ model{{
     rates ~ Dirichlet(conc=[1.0, 2.0, 1.0, 1.0, 2.0, 1.0]);
     Q = gt16(freq=π, rates=rates);
 
-    D ~ SparsePhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype(), root=D);
+    D ~ PhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype());
     
     epsilon ~ Beta(alpha=2, beta=18);
     delta ~ Beta(alpha=1.5, beta=4.5);
@@ -569,7 +569,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readFasta(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -591,7 +591,7 @@ model{{
     rates ~ Dirichlet(conc=[1.0, 2.0, 1.0, 1.0, 2.0, 1.0]);
     Q = gt16(freq=π, rates=rates);
 
-    A ~ SparsePhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype(), root=D);
+    A ~ PhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype());
 }}
 ')
   

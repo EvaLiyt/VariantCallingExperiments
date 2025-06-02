@@ -1,46 +1,57 @@
-# Define the path to the slphy executable and the input .lphy file
+#!/bin/bash
+
+# Paths
+lphy_dir="./lphy_scripts"
+output_dir="./slurm_jobs"
+mkdir -p "${output_dir}"
+
+# Loop through each LPhy script and create a corresponding SLURM job script
+for lphy_file in ${lphy_dir}/*.lphy; do
+    basename=$(basename "${lphy_file}")
+    id=$(echo "${basename}" | sed -E 's/.*_r([0-9]+)\.lphy/\1/')
+
+    job_script="${output_dir}/run_r${id}.sh"
+
+    cat > "${job_script}" <<EOF
+#!/bin/bash
+#SBATCH -J SM_r${id}
+#SBATCH -A nesi00390
+#SBATCH --time=5:00:00
+#SBATCH --mem=32G
+#SBATCH --cpus-per-task=4
+#SBATCH --mail-user=yil218@aucklanduni.ac.nz
+#SBATCH --mail-type=ALL
+#SBATCH -o slurm_r${id}.out
+#SBATCH -e slurm_r${id}.err
+
+module load Java/17
+
 slphy="/home/yil218/lphy-studio-1.6.1/bin/slphy"
-lphy_file="./sequenceGeneration.lphy"
-log="./readcount"
+lphy_file="${lphy_file}"
+
 result="./simulationData"
+log="./readcount"
 nexus="./nexus"
 vcf="./vcf"
 root="./root"
 trees="./trees"
-# Create output directories if they don't exist
-mkdir -p "${result}" "${nexus}" "${vcf}" "${root}" "${trees}" "${log}"
 
-# Loop to perform the operation 100 times
-for i in $(seq 0 99); do
-      # Run slphy inside the folder
-      ${slphy} -r 1 $lphy_file
+mkdir -p "\${log}" "\${result}" "\${nexus}" "\${vcf}" "\${root}" "\${trees}"
 
-      # Rename the generated files to include the folder name (e.g., r1) after the first underscore
-      for file in sequenceGeneration_*; do
-        if [[ -f "$file" ]]; then
-            mv "$file" "$(echo "$file" | sed "s/^sequenceGeneration_/sequenceGeneration_r${i}_/")"
-        fi
-        done
+echo "Running simulation for r${id}..."
+\${slphy} -r 1 "\${lphy_file}"
 
-    # Rename the log file
-        for file in sequenceGeneration.log; do
-            if [[ -f "$file" ]]; then
-                mv "$file" "$(echo "$file" | sed "s/\.log$/_r${i}.log/")"
-            fi
-        done
+mv "\${lphy_dir}"/*.trees "\${trees}/"
+mv "\${lphy_dir}"/*A.nexus "\${nexus}/"
+mv "\${lphy_dir}"/*D.nexus "\${root}/"
+mv "\${lphy_dir}"/*.vcf "\${vcf}/"
+mv "\${lphy_dir}"/*readcount.log "\${log}/"
+mv "\${lphy_dir}"/sequenceGeneration*.log "\${result}/"
 
-     
-      mv *.trees ${trees}
-      mv *A.nexus ${nexus}
-      mv *D.nexus ${root}
-      mv *readcount.log ${log}
-      mv *.vcf ${vcf}
-      
-      mv sequenceGeneration_* ${result}
-      
+echo "r${id} simulation completed."
+EOF
 
-      echo "r${i} is done"
+    # Submit the job
+    sbatch "${job_script}"
+    echo "Submitted job for r${id}"
 done
-
-# Print a message when all simulations are completed
-echo "All simulations completed."

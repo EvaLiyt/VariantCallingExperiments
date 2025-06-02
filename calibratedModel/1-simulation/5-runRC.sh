@@ -8,4 +8,4 @@
 #SBATCH --mail-type=ALL
 
 module load R
-Rscript ./6-getReadCounts.R
+Rscript ./5-getReadCounts.R

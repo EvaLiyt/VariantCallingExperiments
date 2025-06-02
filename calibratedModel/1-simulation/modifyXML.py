@@ -13,9 +13,9 @@ for event, elem in context:
     elif root is None:
         root = elem  
 # Step 1: add samplefromprior
-# for mcmc in root.findall(".//run"):
-#     if mcmc.get("id") == "MCMC" and mcmc.get("spec") == "MCMC":
-#         mcmc.set("sampleFromPrior", "true")
+for mcmc in root.findall(".//run"):
+    if mcmc.get("id") == "MCMC" and mcmc.get("spec") == "MCMC":
+        mcmc.set("sampleFromPrior", "true")
 # Step 2: delete unwanted operators
 for operator in root.findall(".//operator"):
     operator_id = operator.get("id", "")

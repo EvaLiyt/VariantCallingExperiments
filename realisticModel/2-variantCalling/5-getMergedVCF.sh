@@ -3,6 +3,7 @@
 #SBATCH -J RM_getMergedVCF
 #SBATCH -A nesi00390            # Account code
 #SBATCH --time=16:00:00         # Walltime
+#SBATCH --mem=16G
 #SBATCH --cpus-per-task=1       # OpenMP Threads
 #SBATCH --ntasks=1              # Not using MPI
 #SBATCH --hint=multithread      # A multithreaded job
