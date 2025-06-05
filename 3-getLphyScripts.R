@@ -201,7 +201,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
    // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -238,7 +238,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
    // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -270,7 +270,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -305,7 +305,7 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
@@ -456,14 +456,14 @@ for (i in 0:99) {
   script <- glue('
 data {{
    // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
     effectiveNormalRate={meanRate_normal}*1000000/L;
     logMeanNormal = log(effectiveNormalRate);
     effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
@@ -506,14 +506,14 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
      L = A.nchar();
     effectiveNormalRate={meanRate_normal}*1000000/L;
     logMeanNormal = log(effectiveNormalRate);
     effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
@@ -551,14 +551,14 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
      L = A.nchar();
     effectiveNormalRate={meanRate_normal}*1000000/L;
     logMeanNormal = log(effectiveNormalRate);
     effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
@@ -600,14 +600,14 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
      L = A.nchar();
     effectiveNormalRate={meanRate_normal}*1000000/L;
     logMeanNormal = log(effectiveNormalRate);
     effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
@@ -760,24 +760,24 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // getting information from tree tumour root and taxa
-    treeList = readTrees(file = "../../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
+    treeList = readTrees(file = "../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
     trueTree = treeList[0];
 
     n = trueTree.leafCount();
     nodeLabel = "tumourRoot";
     tumourRoot_scs = trueTree.getLabeledNode(nodeLabel);
-    tumourLeaves = tumourRoot_scs.getAllLeafNodeNames();
+    tumourLeaves = tumourRoot_scs.getLeafNames();
     normalLeaves = setDifference(trueTree.getTaxaNames(), tumourLeaves);
     
     // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
     effectiveNormalRate={meanRate_normal}*1000000/L;
     logMeanNormal = log(effectiveNormalRate);
     effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     tumourTaxa = taxa(names=tumourLeaves);
@@ -820,24 +820,24 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // getting information from tree tumour root and taxa
-    treeList = readTrees(file = "../../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
+    treeList = readTrees(file = "../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
     trueTree = treeList[0];
 
     n = trueTree.leafCount();
     nodeLabel = "tumourRoot";
     tumourRoot_scs = trueTree.getLabeledNode(nodeLabel);
-    tumourLeaves = tumourRoot_scs.getAllLeafNodeNames();
+    tumourLeaves = tumourRoot_scs.getLeafNames();
     normalLeaves = setDifference(trueTree.getTaxaNames(), tumourLeaves);
     
     // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
     effectiveNormalRate={meanRate_normal}*1000000/L;
     logMeanNormal = log(effectiveNormalRate);
     effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     tumourTaxa = taxa(names=tumourLeaves);
@@ -875,24 +875,24 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // getting information from tree tumour root and taxa
-    treeList = readTrees(file = "../../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
+    treeList = readTrees(file = "../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
     trueTree = treeList[0];
 
     n = trueTree.leafCount();
     nodeLabel = "tumourRoot";
     tumourRoot_scs = trueTree.getLabeledNode(nodeLabel);
-    tumourLeaves = tumourRoot_scs.getAllLeafNodeNames();
+    tumourLeaves = tumourRoot_scs.getLeafNames();
     normalLeaves = setDifference(trueTree.getTaxaNames(), tumourLeaves);
     
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());    
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");    
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
     effectiveNormalRate={meanRate_normal}*1000000/L;
     logMeanNormal = log(effectiveNormalRate);
     effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     tumourTaxa = taxa(names=tumourLeaves);
@@ -934,24 +934,24 @@ for (i in 0:99) {
   script <- glue('
 data {{
      // getting information from tree tumour root and taxa
-    treeList = readTrees(file = "../../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
+    treeList = readTrees(file = "../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
     trueTree = treeList[0];
 
     n = trueTree.leafCount();
     nodeLabel = "tumourRoot";
     tumourRoot_scs = trueTree.getLabeledNode(nodeLabel);
-    tumourLeaves = tumourRoot_scs.getAllLeafNodeNames();
+    tumourLeaves = tumourRoot_scs.getLeafNames();
     normalLeaves = setDifference(trueTree.getTaxaNames(), tumourLeaves);
     
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());    
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");    
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
     effectiveNormalRate={meanRate_normal}*1000000/L;
     logMeanNormal = log(effectiveNormalRate);
     effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     tumourTaxa = taxa(names=tumourLeaves);
