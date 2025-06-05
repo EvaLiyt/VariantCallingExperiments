@@ -14,14 +14,14 @@ lphybeastVersionFile="/home/yil218/.beast/2.7/lphybeast/version.xml"
 flcVersionFile="/home/yil218/.beast/2.7/lphybeast.flc/version.xml"
 
 # Define your target directories
-directories=( "./ErrModelScripts" "./withoutErrModelScripts" "./TrueErrModelScripts" "./TrueWithoutErrModelScripts" )
+directories=( "./ErrModelScripts" "./wtErrModelScripts" "./TrueErrModelScripts" "./TruewtErrModelScripts" )
 
 # Loop through each directory
 for dir in "${directories[@]}"; do
     for lphy_file in "${dir}"/*.lphy; do
         [ -e "$lphy_file" ] || continue  # skip if no .lphy files
         base_name=$(basename "$lphy_file" .lphy)
-        slurm_script="${dir}/run_${base_name}.slurm"
+        slurm_script="${dir}/run_${base_name}.sh"
         
         # Create SLURM job script
         cat > "$slurm_script" <<EOL

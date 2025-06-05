@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J RM_replace?s
+#SBATCH -J SM_replace?s
 #SBATCH -A nesi00390            # The account code
 #SBATCH --time=2:00:00        # Adjust walltime as needed
 #SBATCH --mem=16G              # Adjust memory as needed

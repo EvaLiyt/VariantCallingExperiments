@@ -3,7 +3,7 @@ import random
 import textwrap
 
 # Set seed for reproducibility if needed
-# random.seed(42)
+random.seed(42)
 
 # Number of repeats
 num_repeats = 100

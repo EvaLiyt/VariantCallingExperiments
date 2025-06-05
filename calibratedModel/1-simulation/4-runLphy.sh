@@ -28,7 +28,7 @@ module load Java/17
 
 slphy="/home/yil218/lphy-studio-1.6.1/bin/slphy"
 lphy_file="${lphy_file}"
-
+lphy_dir="./lphy_scripts"
 result="./simulationData"
 log="./readcount"
 nexus="./nexus"

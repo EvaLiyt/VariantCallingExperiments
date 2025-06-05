@@ -22,7 +22,7 @@ lphybeastVersionFile="/home/yil218/.beast/2.7/lphybeast/version.xml"
 flcVersionFile="/home/yil218/.beast/2.7/lphybeast.flc/version.xml"
 lphybeastPath="/home/yil218/beast/bin"
 
-${lphybeastPath}/lphybeast -vf "${phyloncoVersionFile},${lphybeastVersionFile},${flcVersionFile}" -sp -l 20000000 "$lphy_file"
+${lphybeastPath}/lphybeast -vf "${phyloncoVersionFile},${lphybeastVersionFile},${flcVersionFile}" -l 20000000 "$lphy_file"
 
 echo "XML files are generated."
 

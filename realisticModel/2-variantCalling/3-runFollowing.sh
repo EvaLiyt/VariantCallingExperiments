@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J RM_filter&Modify
+#SBATCH -J RM_runFollowing
 #SBATCH -A nesi00390            # Account code
 #SBATCH --time=16:00:00         # Walltime
 #SBATCH --cpus-per-task=1       # OpenMP Threads
@@ -11,6 +11,14 @@
 
 ./filter.sh
 ./modifyVCFs.sh
+./getGZfiles.sh
 
+module load BCFtools/1.19-GCC-11.3.0
+module load Python/3.11.3-gimkl-2022a
+python changeVCFnames.py
+
+./mergeVCF.sh
+python changePL.py
+python getRefSeq.py
 
 

@@ -9,7 +9,7 @@ with pysam.FastaFile(input_file) as fasta:
     name = fasta.references[0]
     complete_seq = fasta.fetch(name)
 
-seq_length = 1000000
+seq_length = 10000
 
 ## choose the sequence region
 start_position = 44800001
@@ -23,4 +23,4 @@ filtered_seq = complete_seq[start_position:end_position+1].upper()
 ## write the new file
 with open(output_file, "w") as outfile:
     outfile.write(">chr1\n")
-    outfile.write(filtered_seq)
+	outfile.write(filtered_seq + "\n")

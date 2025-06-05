@@ -1,5 +1,9 @@
 #!/bin/bash
-
+#SBATCH -J SM_runLphy
+#SBATCH -A nesi00390
+#SBATCH --time=5:00:00
+#SBATCH --mem=4G
+#SBATCH --cpus-per-task=4
 # Paths
 lphy_dir="./lphy_scripts"
 output_dir="./slurm_jobs"
@@ -28,6 +32,7 @@ module load Java/17
 
 slphy="/home/yil218/lphy-studio-1.6.1/bin/slphy"
 lphy_file="${lphy_file}"
+lphy_dir="./lphy_scripts"
 
 result="./simulationData"
 log="./readcount"
