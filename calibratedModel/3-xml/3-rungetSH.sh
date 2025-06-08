@@ -31,7 +31,6 @@ do
         echo "#SBATCH --mem=8G                    # Total memory" >> "$sh_file"
         echo "#SBATCH --cpus-per-task=2           # OpenMP Threads" >> "$sh_file"
         echo "#SBATCH --ntasks=1                  # Not using MPI" >> "$sh_file"
-        echo "#SBATCH --hint=multithread          # Multithreaded job" >> "$sh_file"
         echo "#SBATCH -D ./                       # Initial directory" >> "$sh_file"
         echo "#SBATCH -o ${xml_type}_r${r}.out    # Output file" >> "$sh_file"
         echo "#SBATCH -e ${xml_type}_r${r}.err    # Error file" >> "$sh_file"
@@ -43,7 +42,7 @@ do
         echo "" >> "$sh_file"
 
         # Define XML filename
-        xml_file="./xmls/${xml_type}_r${r}.xml"
+        xml_file="./${xml_type}_r${r}.xml"
         echo "# Running beast on $xml_file" >> "$sh_file"
         echo "srun /home/yil218/beast/bin/beast -beagle_SSE $xml_file" >> "$sh_file"
     
