@@ -56,7 +56,7 @@ for (file_path in readcount_files) {
   # Load readcount lines
   lines <- readLines(file_path)
   if (length(cell_names) != length(lines)) {
-    cat("Cell name count does not match line count in", r_number, "\n")
+    cat("Cell name count", length(cell_names), "does not match line count",length(lines),"in", r_number, "\n")
     next
   }
 

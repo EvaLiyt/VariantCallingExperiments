@@ -201,11 +201,11 @@ for (i in 0:99) {
   script <- glue('
 data {{
    // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveMeanRate={meanRate_tumour}*1000000/L;
+    effectiveMeanRate={meanRate_tumour}*10000/L;
     logMean = log(effectiveMeanRate);
 }}
 model{{
@@ -238,11 +238,12 @@ for (i in 0:99) {
   script <- glue('
 data {{
    // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveMeanRate={meanRate_tumour}*1000000/L;
+    effectiveMeanRate={meanRate_tumour}*10000/L;
     logMean = log(effectiveMeanRate);
 }}
 model{{
@@ -270,11 +271,12 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveMeanRate={meanRate_tumour}*1000000/L;
+    effectiveMeanRate={meanRate_tumour}*10000/L;
     logMean = log(effectiveMeanRate);
 }}
 model{{
@@ -305,11 +307,12 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveMeanRate={meanRate_tumour}*1000000/L;
+    effectiveMeanRate={meanRate_tumour}*10000/L;
     logMean = log(effectiveMeanRate);
 }}
 model{{
@@ -383,7 +386,7 @@ model {{
     tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -423,7 +426,7 @@ model {{
     tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -456,29 +459,30 @@ for (i in 0:99) {
   script <- glue('
 data {{
    // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*1000000/L;
+    effectiveNormalRate={meanRate_normal}*10000/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    effectiveTumourRate={meanRate_tumour}*10000/L;
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
+    tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
     
     tumourNames = [{tumour_names_line}];
 
-    tumourTaxa = taxa(names = tumourNames);
-
+    tumourTaxa=taxa(names=tumourNames);
     tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
-
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
+
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -506,17 +510,19 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
      L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*1000000/L;
+    effectiveNormalRate={meanRate_normal}*10000/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    effectiveTumourRate={meanRate_tumour}*10000/L;
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
+    tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
@@ -528,7 +534,7 @@ model{{
     tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -551,18 +557,20 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
-     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*1000000/L;
+    L = A.nchar();
+    effectiveNormalRate={meanRate_normal}*10000/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    effectiveTumourRate={meanRate_tumour}*10000/L;
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
+    tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
 
@@ -573,7 +581,7 @@ model{{
     tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -600,18 +608,20 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
      L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*1000000/L;
+    effectiveNormalRate={meanRate_normal}*10000/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    effectiveTumourRate={meanRate_tumour}*10000/L;
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
     lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
+    tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
 
@@ -622,7 +632,7 @@ model{{
     tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -760,39 +770,38 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // getting information from tree tumour root and taxa
-    treeList = readTrees(file = "../../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
+    treeList = readTrees(file = "../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
     trueTree = treeList[0];
 
     n = trueTree.leafCount();
     nodeLabel = "tumourRoot";
     tumourRoot_scs = trueTree.getLabeledNode(nodeLabel);
-    tumourLeaves = tumourRoot_scs.getAllLeafNodeNames();
+    tumourLeaves = tumourRoot_scs.getLeafNames();
     normalLeaves = setDifference(trueTree.getTaxaNames(), tumourLeaves);
     
     // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*1000000/L;
+    effectiveNormalRate={meanRate_normal}*10000/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    effectiveTumourRate={meanRate_tumour}*10000/L;
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
-    tumourTaxa = taxa(names=tumourLeaves);
     lambda ~ LogNormal(meanlog = {mean_lambda_RMI}, sdlog = {sdlog_lambda_RMI});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
     
+    tumourTaxa=taxa(names=tumourLeaves);
+    normalTaxa=taxa(names=normalLeaves);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa, rootAge=rootAge);
     tumourRoot = mrca(tree=tree, taxa=tumourLeaves);
-    
-    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
-
-    tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -820,39 +829,38 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // getting information from tree tumour root and taxa
-    treeList = readTrees(file = "../../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
+    treeList = readTrees(file = "../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
     trueTree = treeList[0];
 
     n = trueTree.leafCount();
     nodeLabel = "tumourRoot";
     tumourRoot_scs = trueTree.getLabeledNode(nodeLabel);
-    tumourLeaves = tumourRoot_scs.getAllLeafNodeNames();
+    tumourLeaves = tumourRoot_scs.getLeafNames();
     normalLeaves = setDifference(trueTree.getTaxaNames(), tumourLeaves);
     
     // alignment
-    RA = readFasta(file = "../../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+    RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*1000000/L;
+    effectiveNormalRate={meanRate_normal}*10000/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    effectiveTumourRate={meanRate_tumour}*10000/L;
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
-    tumourTaxa = taxa(names=tumourLeaves);
     lambda ~ LogNormal(meanlog = {mean_lambda_RMI}, sdlog = {sdlog_lambda_RMI});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
     
+    tumourTaxa=taxa(names=tumourLeaves);
+    normalTaxa=taxa(names=normalLeaves);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa, rootAge=rootAge);
     tumourRoot = mrca(tree=tree, taxa=tumourLeaves);
-    
-    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
-
-    tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -875,39 +883,38 @@ for (i in 0:99) {
   script <- glue('
 data {{
     // getting information from tree tumour root and taxa
-    treeList = readTrees(file = "../../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
+    treeList = readTrees(file = "../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
     trueTree = treeList[0];
 
     n = trueTree.leafCount();
     nodeLabel = "tumourRoot";
     tumourRoot_scs = trueTree.getLabeledNode(nodeLabel);
-    tumourLeaves = tumourRoot_scs.getAllLeafNodeNames();
+    tumourLeaves = tumourRoot_scs.getLeafNames();
     normalLeaves = setDifference(trueTree.getTaxaNames(), tumourLeaves);
     
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());    
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");    
+         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*1000000/L;
+    effectiveNormalRate={meanRate_normal}*10000/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    effectiveTumourRate={meanRate_tumour}*10000/L;
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
-    tumourTaxa = taxa(names=tumourLeaves);
     lambda ~ LogNormal(meanlog = {mean_lambda_RMI}, sdlog = {sdlog_lambda_RMI});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
     
+    tumourTaxa=taxa(names=tumourLeaves);
+    normalTaxa=taxa(names=normalLeaves);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa, rootAge=rootAge);
     tumourRoot = mrca(tree=tree, taxa=tumourLeaves);
-    
-    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
-
-    tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -934,39 +941,38 @@ for (i in 0:99) {
   script <- glue('
 data {{
      // getting information from tree tumour root and taxa
-    treeList = readTrees(file = "../../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
+    treeList = readTrees(file = "../../1-simulation/trees/sequenceGeneration_r{i}_psilabelled.trees");
     trueTree = treeList[0];
 
     n = trueTree.leafCount();
     nodeLabel = "tumourRoot";
     tumourRoot_scs = trueTree.getLabeledNode(nodeLabel);
-    tumourLeaves = tumourRoot_scs.getAllLeafNodeNames();
+    tumourLeaves = tumourRoot_scs.getLeafNames();
     normalLeaves = setDifference(trueTree.getTaxaNames(), tumourLeaves);
     
     // alignment
-    RA = readNexus(file = "../../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus", sequenceType=phasedGenotype());    
+    RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");    
+    
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*1000000/L;
+    effectiveNormalRate={meanRate_normal}*10000/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*1000000/L;
-    logMeanumour = log(effectiveTumourRate);
+    effectiveTumourRate={meanRate_tumour}*10000/L;
+    logMeanTumour = log(effectiveTumourRate);
 }}
 model{{
-    tumourTaxa = taxa(names=tumourLeaves);
     lambda ~ LogNormal(meanlog = {mean_lambda_RMI}, sdlog = {sdlog_lambda_RMI});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
     
+    tumourTaxa=taxa(names=tumourLeaves);
+    normalTaxa=taxa(names=normalLeaves);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa, rootAge=rootAge);
     tumourRoot = mrca(tree=tree, taxa=tumourLeaves);
-    
-    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
-
-    tumourRoot = mrca(tree=tree, taxa=tumourNames);
-    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
