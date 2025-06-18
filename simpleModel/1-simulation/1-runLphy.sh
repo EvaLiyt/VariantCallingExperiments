@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J SM_runLphy
-#SBATCH -A nesi00390
+#SBATCH -A uoa04397
 #SBATCH --time=5:00:00
 #SBATCH --mem=4G
 #SBATCH --cpus-per-task=4
@@ -19,7 +19,7 @@ for lphy_file in ${lphy_dir}/*.lphy; do
     cat > "${job_script}" <<EOF
 #!/bin/bash
 #SBATCH -J SM_r${id}
-#SBATCH -A nesi00390
+#SBATCH -A uoa04397
 #SBATCH --time=5:00:00
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=4

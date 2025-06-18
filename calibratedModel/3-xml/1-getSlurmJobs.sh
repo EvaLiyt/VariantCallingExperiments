@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -J CM_runLphybeast
-#SBATCH -A nesi00390
+#SBATCH -A uoa04397
 #SBATCH --time=5:00:00
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
@@ -27,8 +27,8 @@ for dir in "${directories[@]}"; do
         cat > "$slurm_script" <<EOL
 #!/bin/bash
 #SBATCH -J CM_${base_name}
-#SBATCH -A nesi00390
-#SBATCH --time=16:00:00
+#SBATCH -A uoa04397
+#SBATCH --time=5:00:00
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
 #SBATCH --hint=multithread
@@ -39,7 +39,7 @@ for dir in "${directories[@]}"; do
 
 module load beast
 
-${lphybeastPath}/lphybeast -vf "${phyloncoVersionFile},${lphybeastVersionFile},${flcVersionFile}" -l 20000000 "${lphy_file}" > "${lphy_file}.log" 2>&1
+${lphybeastPath}/lphybeast -vf "${phyloncoVersionFile},${lphybeastVersionFile},${flcVersionFile}" -l 60000000 "${lphy_file}" > "${lphy_file}.log" 2>&1
 EOL
 
         echo "Created SLURM script: $slurm_script"

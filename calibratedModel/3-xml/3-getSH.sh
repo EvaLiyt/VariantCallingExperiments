@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH -J CM_getSHs
-#SBATCH -A nesi00390            # The account code
+#SBATCH -A uoa04397            # The account code
 #SBATCH --time=8:00:00        # Adjust walltime as needed
 #SBATCH --mem=8G              # Adjust memory as needed
 #SBATCH --cpus-per-task=4      # Number of CPUs per task
@@ -25,9 +25,9 @@ do
         # Create the .sh script
         echo "#!/bin/sh" > "$sh_file"
         echo "" >> "$sh_file"
-        echo "#SBATCH -J CM_${xml_type}_r${r}      # The job name" >> "$sh_file"
-        echo "#SBATCH -A nesi00390                # The account code" >> "$sh_file"
-        echo "#SBATCH --time=96:00:00             # The walltime" >> "$sh_file"
+        echo "#SBATCH -J RM_${xml_type}_r${r}      # The job name" >> "$sh_file"
+        echo "#SBATCH -A uoa04397                # The account code" >> "$sh_file"
+        echo "#SBATCH --time=192:00:00             # The walltime" >> "$sh_file"
         echo "#SBATCH --mem=8G                    # Total memory" >> "$sh_file"
         echo "#SBATCH --cpus-per-task=2           # OpenMP Threads" >> "$sh_file"
         echo "#SBATCH --ntasks=1                  # Not using MPI" >> "$sh_file"

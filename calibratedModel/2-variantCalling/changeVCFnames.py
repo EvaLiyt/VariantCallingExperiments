@@ -65,7 +65,9 @@ for subfolder in os.listdir(input_folder):
 
                 # Remove the uncompressed file
                 os.remove(output_path)
-
+                sort_command = f"bcftools sort -Oz -o {compressed_path} {compressed_path}"
+                subprocess.run(sort_command, shell=True, check=True)
+				
                 # Generate the index file using tabix
                 tabix_command = f"tabix -p vcf {compressed_path}"
                 subprocess.run(tabix_command, shell=True, check=True)

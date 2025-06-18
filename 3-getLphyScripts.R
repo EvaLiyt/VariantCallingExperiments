@@ -1,6 +1,15 @@
 ## Libs
 library(glue)
+library(ape)
+#install.packages("phangorn", repos = "https://cloud.r-project.org", type = "source")
+#install.packages("phytools", repos = "https://cloud.r-project.org")
+#install.packages("geiger", repos = "https://cloud.r-project.org")
+#install.packages("TreeSim", repos = "https://cloud.r-project.org")
+library(geiger)
+library(TreeSim)
 
+
+set.seed(42)
 ## Chosen Truth
 tumourTreeLow <- 5
 tumourTreeHigh <- 8
@@ -8,52 +17,33 @@ tumourTreeHigh <- 8
 normalTreeLow <- 50
 normalTreeHigh <- 90
 
-sequence_len <- 1*10^4
+sequence_len <- 10000
+ntaxa <- 40
 
-z975 <- qnorm(0.975)
+## define functions
+get_lognormal_params <- function(lower, upper) {
+  # Check inputs
+  if (lower <= 0 || upper <= 0 || lower >= upper) {
+    stop("Bounds must be positive and lower < upper")
+  }
+  
+  # z-scores for 2.5% and 97.5% quantiles
+  z_lower <- qnorm(0.025)
+  z_upper <- qnorm(0.975)
+  
+  # Log-transform the bounds
+  log_lower <- log(lower)
+  log_upper <- log(upper)
+  
+  # Estimate sdlog
+  sdlog <- (log_upper - log_lower) / (z_upper - z_lower)
+  
+  # Estimate meanlog
+  meanlog <- (log_lower + log_upper) / 2
+  
+  return(list(meanlog = meanlog, sdlog = sdlog))
+}
 
-## Mutation Rate Calculation
-### Calculate Mutation Rate for Colon Epithelium Normal Cells
-# The data is from "https://www.pnas.org/doi/full/10.1073/pnas.1607794113"
-
-patient_ages <- c(10, 30, 50)
-ressearch_mutation_rates_low <- c(1.8-0.5, 5.5-1.6, 11.0-1.5) * 10^-7
-ressearch_mutation_rates_high <- c(1.8+0.5, 5.5+1.6, 11.0+1.5) * 10^-7
-
-normal_mut_model_low <- lm(ressearch_mutation_rates_low ~ patient_ages)
-normal_mut_model_high <- lm(ressearch_mutation_rates_high ~ patient_ages)
-
-model_summary_low <- summary(normal_mut_model_low)
-model_summary_high <- summary(normal_mut_model_high)
-
-normalRate_low_wholeGenome <- model_summary_low $ coefficients[2, 1]
-normalRate_high_wholeGenome <- model_summary_high $ coefficients[2, 1]
-
-### Calculate Mutation Rate for Colorectal Caner
-### The rate is from "https://www.nature.com/articles/nature05610/tables/1"
-tumourMuts_wholeGenome <- 1.21 * 10^-6
-tumourRate_wholeGenome_low <- tumourMuts_wholeGenome / tumourTreeHigh
-tumourRate_wholeGenome_high <- tumourMuts_wholeGenome / tumourTreeLow
-
-### Scale Branch Rates
-### Reference genome is from "https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000001405.40/"
-wholeGenomeSize <- 3099441038
-sizeScale <- wholeGenomeSize / sequence_len
-normalRate_low <- normalRate_low_wholeGenome * sizeScale
-normalRate_high <- normalRate_high_wholeGenome * sizeScale
-tumourRate_high <- tumourRate_wholeGenome_high * sizeScale
-tumourRate_low <- tumourRate_wholeGenome_low * sizeScale
-
-### Generate LogNormal Distribution for Branch Rates
-sdlog_normalRate <- (log(normalRate_high) - log(normalRate_low)) / (2 * z975)
-mean_normalRate <- (log(normalRate_high) + log(normalRate_low)) / 2
-meanRate_normal <- exp(-(mean_normalRate + sdlog_normalRate / 2))
-
-sdlog_tumourRate <- (log(tumourRate_high) - log(tumourRate_low)) / (2 * z975)
-mean_tumourRate <- (log(tumourRate_high) + log(tumourRate_low)) / 2
-meanRate_tumour <- exp(-(mean_tumourRate + sdlog_tumourRate / 2))
-
-### Generate LogNormal Distribution for read count model parameters
 estimate_beta_params <- function(L, U, p_L=0.025, p_U=0.975) {
   mean_est <- (L + U) / 2
   var_est <- ((U - L) / 4)^2
@@ -76,6 +66,115 @@ estimate_beta_params <- function(L, U, p_L=0.025, p_U=0.975) {
   return(list(alpha = res$par[1], beta = res$par[2]))
 }
 
+generate_yule_tree_length <- function(root_age, n_tips, lambda, n_sim = 100) {
+  set.seed(42)
+  tree_lengths <- numeric(n_sim)
+
+  for (i in 1:n_sim) {
+    # Simulate one Yule tree per iteration
+    trees <- sim.bd.taxa.age(n = n_tips, numbsim = 1, lambda = lambda, mu = 1, age = root_age)
+
+    # Handle failure cases
+    if (length(trees) == 0 || is.null(trees[[1]])) {
+      warning(paste("Simulation", i, "failed. Skipping."))
+      tree_lengths[i] <- NA
+    } else {
+      tree_lengths[i] <- sum(trees[[1]]$edge.length)
+    }
+  }
+
+  # Remove failed simulations (if any)
+  tree_lengths <- na.omit(tree_lengths)
+
+  return(mean(tree_lengths))
+}
+
+#### Calibrations for Normal and Tumour Root
+normalRoot_params <- get_lognormal_params(normalTreeLow, normalTreeHigh)
+mean_normalRoot <- normalRoot_params$meanlog
+sdlog_normalRoot <- normalRoot_params$sdlog
+
+tumourRoot_params <- get_lognormal_params(tumourTreeLow, tumourTreeHigh)
+mean_tumourRoot <- tumourRoot_params$meanlog
+sdlog_tumourRoot <- tumourRoot_params$sdlog
+
+
+## Mutation Rate Calculation
+### Calculate Mutation Rate for Colon Epithelium Normal Cells
+# The data is from "https://www.pnas.org/doi/full/10.1073/pnas.1607794113"
+patient_ages <- c(10, 30, 65)
+ressearch_mutation_rates_low <- c(1.8, 5.5, 11.0) * 10^-7
+
+normal_mut_model <- lm(ressearch_mutation_rates_low ~ patient_ages)
+model_summary <- summary(normal_mut_model)
+# slope is mutation rate per site per year
+normalRate_wholeGenome <- model_summary $ coefficients[2, 1]
+
+### Calculate Mutation Rate for Colorectal Caner
+### The rate is from "https://www.nature.com/articles/nature05610/tables/1"
+### assume early stage to be 3 years from paper "https://ascopubs.org/doi/10.1200/JCO.2021.39.15_suppl.e18584"
+## tumour rate per site per year
+tumourMuts_wholeGenome <- 1.21 * 10^-6 / 3
+scale_tumour <- tumourMuts_wholeGenome/normalRate_wholeGenome
+
+### Calculate the lambda for tumour and normal
+lambda_high_normal <- sum(1 / (2:ntaxa)) / normalTreeLow
+lambda_low_normal <- sum(1 / (2:ntaxa)) / normalTreeHigh
+normal_lambda_params <- get_lognormal_params(lambda_low_normal, lambda_high_normal)
+meanlog_lambda_normal <- normal_lambda_params$meanlog
+sdlog_lambda_normal <- normal_lambda_params$sdlog
+
+lambda_high_tumour <- sum(1 / (2:ntaxa)) / tumourTreeLow
+lambda_low_tumour <- sum(1 / (2:ntaxa)) / tumourTreeHigh
+tumour_lambda_params <- get_lognormal_params(lambda_low_tumour, lambda_high_tumour)
+meanlog_lambda_tumour <- tumour_lambda_params$meanlog
+sdlog_lambda_tumour <- tumour_lambda_params$sdlog
+
+
+### Scale Branch Rates
+## calculate tree length
+normalTreeLength <- generate_yule_tree_length((normalTreeHigh + normalTreeLow)/2, ntaxa, (lambda_high_normal+ lambda_low_normal)/2) -
+   generate_yule_tree_length((tumourTreeHigh + tumourTreeLow)/2, 20, (lambda_high_tumour + lambda_low_tumour)/2)
+normalTreeLength_high <- generate_yule_tree_length(normalTreeHigh, ntaxa, lambda_low_normal) - generate_yule_tree_length(tumourTreeLow, 20, lambda_high_tumour)
+normalTreeLength_low <- generate_yule_tree_length(normalTreeLow, ntaxa, lambda_high_normal) - generate_yule_tree_length(tumourTreeHigh, 20, lambda_low_tumour)
+
+tumourTreeLength <- generate_yule_tree_length((tumourTreeHigh + tumourTreeLow)/2 , 20, lambda_high_tumour) + (normalTreeHigh + normalTreeLow)/2 - (tumourTreeHigh + tumourTreeLow)/2
+tumourTreeLength_high <- generate_yule_tree_length(tumourTreeHigh, 20, lambda_low_tumour) + normalTreeHigh - tumourTreeHigh
+tumourTreeLength_low <- generate_yule_tree_length(tumourTreeLow, 20, lambda_low_tumour) + normalTreeLow - tumourTreeLow
+
+## scale the mutation rates
+expect_normal_mut <- 0.01 # per site
+normalRate_high <- expect_normal_mut / normalTreeLength_low
+normalRate_low <- expect_normal_mut / normalTreeLength_high
+
+tumourRate_high <- normalRate_high * scale_tumour
+tumourRate_low <- normalRate_low * scale_tumour
+
+## checking mutation per site
+# check_normal_high <- normalRate_high * normalTreeLength
+# check_normal_low <- normalRate_low * normalTreeLength
+# check_tumour_high <- tumourRate_high * tumourTreeLength
+# check_tumour_low <- tumourRate_low * tumourTreeLength
+#check_muts_normal <- (normalRate_high + normalRate_low)/2 * normalTreeLength
+#check_muts_tumour <- tumourTreeLength*(tumourRate_high + tumourRate_low)/2
+# 
+# cat("check_normal_high:", check_normal_high, 
+#     "\ncheck_normal_low:", check_normal_low, 
+#     "\ncheck_tumour_high:", check_tumour_high, 
+#     "\ncheck_tumour_low:", check_tumour_low, "\n")
+
+### Generate LogNormal Distribution for Branch Rates
+normalRate_params <- get_lognormal_params(normalRate_low, normalRate_high)
+mean_normalRate <- normalRate_params$meanlog
+sdlog_normalRate <- normalRate_params$sdlog
+meanRate_normal <- exp(-(mean_normalRate + sdlog_normalRate / 2))
+
+tumourRate_params <- get_lognormal_params(tumourRate_low, tumourRate_high)
+mean_tumourRate <- tumourRate_params$meanlog
+sdlog_tumourRate <- tumourRate_params$sdlog
+meanRate_tumour <- exp(-(mean_tumourRate + sdlog_tumourRate / 2))
+
+
 # ADO rate
 delta_high <- 0.3
 delta_low <- 0.1
@@ -87,14 +186,15 @@ beta_delta <- params_delta$beta
 # t (coverage) and v (variance)
 cov_high <- 6
 cov_low <- 5
-
-sdlog_cov <- (log(cov_high) - log(cov_low)) / (2 * z975)
-mean_cov <- (log(cov_low) + log(cov_high)) / 2
+cov_params <- get_lognormal_params(cov_low, cov_high)
+sdlog_cov <- cov_params$sdlog
+mean_cov <- cov_params$meanlog
 
 v_high <- 25
 v_low <- 15
-sdlog_v <- (log(v_high) - log(v_low)) / (2 * z975)
-mean_v <- (log(v_low) + log(v_high)) / 2
+v_params <- get_lognormal_params(v_low, v_high)
+sdlog_v <- v_params$sdlog
+mean_v <- v_params$meanlog
 
 # epsilon (effective sequencing rate)
 epsilon_high <- 0.0025
@@ -108,47 +208,30 @@ beta_epsilon <- params_epsilon$beta
 # overdispersion
 w1_high <- 55
 w1_low <- 50
-mean_w1 <- (log(w1_low) + log(w1_high)) / 2
+w1_params <- get_lognormal_params(w1_low, w1_high)
+mean_w1 <- w1_params$meanlog
 sdlog_w1 <- 0.33
 
-w2_high <- 2.5
-w2_low <- 2.55
-mean_w2 <- (log(w2_low) + log(w2_high)) / 2
+w2_low <- 2.5
+w2_high <- 2.55
+w2_params <- get_lognormal_params(w2_low, w2_high)
+mean_w2 <- w2_params$meanlog
 sdlog_w2 <- 0.33
-
-### print the parameters
-readCount_parameters <- sprintf(
-  "delta ~ Beta(alpha = %.2f, beta = %.2f);
-   t ~ LogNormal(meanlog = %.2f, sdlog = %.2f);
-   v ~ LogNormal(meanlog = %.2f, sdlog = %.2f);
-   epsilon ~ Beta(alpha = %.2f, beta = %.2f);
-   w1 ~ LogNormal(meanlog = %.2f, sdlog = %.2f);
-   w2 ~ LogNormal(meanlog = %.2f, sdlog = %.2f);",
-  alpha_delta, beta_delta,
-  mean_cov, sdlog_cov,
-  mean_v, sdlog_v,
-  alpha_epsilon, beta_epsilon,
-  mean_w1, sdlog_w1,
-  mean_w2, sdlog_w2
-)
 
 ## Simplest Model (SM)
 ### The simplest model is the Yule tree contains 40 colorectal tumour cells only.
-### Simulation
-#### Lambda
-## calculate the bonds for lambda
-simpleTaxa <- 40 
-lambda_high_SM <- sum(1 / (2:simpleTaxa)) / tumourTreeLow
-lambda_low_SM <- sum(1 / (2:simpleTaxa)) / tumourTreeHigh
+# mutation rate for 40 taxa tumour tree
+tumourTreeLength_high_SM <- generate_yule_tree_length(tumourTreeHigh, ntaxa, lambda_low_tumour)
+tumourTreeLength_low_SM <- generate_yule_tree_length(tumourTreeLow, ntaxa, lambda_low_tumour)
 
-# calculate the parameters for log normal distribution
-sdlog_lambda_SM <- (log(lambda_high_SM) - log(lambda_low_SM)) / (2 * z975)
-mean_lambda_SM <- (log(lambda_low_SM) + log(lambda_high_SM)) / 2
+## scale the mutation rates
+mu_high <- expect_normal_mut* scale_tumour / tumourTreeLength_low_SM
+mu_low <- expect_normal_mut* scale_tumour / tumourTreeLength_high_SM
 
-#### Get Parameter Chunk
-simulation_parameters_simple_model <- sprintf("lambda ~ LogNormal(meanlog = %.2f, sdlog = %.2f);
-    mu ~ LogNormal(meanlog = %.2f, sdlog = %.2f);
-", mean_lambda_SM, sdlog_lambda_SM, mean_tumourRate, sdlog_tumourRate)
+mu_params <- get_lognormal_params(mu_low, mu_high)
+mean_mu <- mu_params$meanlog
+sdlog_mu <- mu_params$sdlog
+meanRate_mu <- exp(-(mean_mu + sdlog_mu / 2))
 
 # Create output folder if it doesn't exist
 if (!dir.exists("./simpleModel/1-simulation/lphy_scripts")) {
@@ -158,15 +241,16 @@ if (!dir.exists("./simpleModel/1-simulation/lphy_scripts")) {
 for (i in 0:99) {
   script <- glue('
 data {{
-    RD = readFasta(file = \"/home/yil218/data/chr1.fna\");
+    RD = readFasta(file = \"/home/yil218/data/10K.fna\");
     L = RD.nchar();
-    n = 40;
+    n = {ntaxa};
 }}
 model{{
     snp ~ SNPSampler(alignment=RD, p=0.001);
     D = injectSNP(alignment=RD, snp=snp);
 
-    {simulation_parameters_simple_model}
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_tumour}, sdlog = {sdlog_lambda_tumour});
+    mu ~ LogNormal(meanlog ={mean_mu}, sdlog = {sdlog_mu});
 
     ψ ~ Yule(lambda=lambda, n=n);
 
@@ -174,19 +258,24 @@ model{{
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
     rates ~ Dirichlet(conc=[1.0, 2.0, 1.0, 1.0, 2.0, 1.0]);
     Q = gt16(freq=π, rates=rates);
-    A ~ SparsePhyloCTMC(L=L, Q=Q, tree=ψ, dataType=phasedGenotype(), mu=mu, root=D);
+    A ~ PhyloCTMC(L=L, Q=Q, tree=ψ, dataType=phasedGenotype(), mu=mu, root=D);
 
-    conc = rep(8.0, 40);
-    s ~ Dirichlet(conc=conc, mean=1);
+    conc = rep(8.0, {ntaxa});
+    s ~ Dirichlet(conc=conc, sum={ntaxa});
     
-    {readCount_parameters}
+    delta ~ Beta(alpha = {alpha_delta}, beta = {beta_delta});
+    t ~ LogNormal(meanlog = {mean_cov}, sdlog = {sdlog_cov});
+    v ~ LogNormal(meanlog = {mean_v}, sdlog = {sdlog_v});
+    epsilon ~ Beta(alpha = {alpha_epsilon}, beta = {beta_epsilon});
+    w1 ~ LogNormal(meanlog = {mean_w1}, sdlog = {sdlog_w1});
+    w2 ~ LogNormal(meanlog = {mean_w2}, sdlog = {sdlog_w2});
     
     alpha ~ Ploidy(l= L, n= n, delta= delta);
     cov ~ CoverageModel(alpha= alpha, t= t, v= v, s= s); // mimic CRC28 dataset
     r ~ ReadCountModel(D=A, epsilon=epsilon, alpha=alpha, coverage=cov, w1=w1, w2=w2);
 }}
 ')
-  
+
   file_name <- sprintf("simpleModel/1-simulation/lphy_scripts/sequenceGeneration_r%d.lphy", i)
   writeLines(script, file_name)
 }
@@ -205,13 +294,13 @@ data {{
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveMeanRate={meanRate_tumour}*10000/L;
+    effectiveMeanRate={meanRate_mu}*{sequence_len}/L;
     logMean = log(effectiveMeanRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_SM}, sdlog = {sdlog_lambda_SM});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_tumour}, sdlog = {sdlog_lambda_tumour});
     mu ~ LogNormal(meanlog = logMean, sdlog=1);
-    tree ~ Yule(lambda=lambda, n=40);
+    tree ~ Yule(lambda=lambda, n={ntaxa});
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -231,7 +320,6 @@ model{{
 
 # Create output folder if it doesn't exist
 if (!dir.exists("./simpleModel/3-xml/wtErrModelScripts")) {
-  dir.create("./simpleModel/3-xml")
   dir.create("./simpleModel/3-xml/wtErrModelScripts")
 }
 for (i in 0:99) {
@@ -239,17 +327,16 @@ for (i in 0:99) {
 data {{
    // alignment
     RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
-         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveMeanRate={meanRate_tumour}*10000/L;
+    effectiveMeanRate={meanRate_mu}*{sequence_len}/L;
     logMean = log(effectiveMeanRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_SM}, sdlog = {sdlog_lambda_SM});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_tumour}, sdlog = {sdlog_lambda_tumour});
     mu ~ LogNormal(meanlog = logMean, sdlog=1);
-    tree ~ Yule(lambda=lambda, n=40);
+    tree ~ Yule(lambda=lambda, n={ntaxa});
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -264,7 +351,6 @@ model{{
 }
 # Create output folder if it doesn't exist
 if (!dir.exists("./simpleModel/3-xml/TrueErrModelScripts")) {
-  dir.create("./simpleModel/3-xml")
   dir.create("./simpleModel/3-xml/TrueErrModelScripts")
 }
 for (i in 0:99) {
@@ -272,17 +358,16 @@ for (i in 0:99) {
 data {{
     // alignment
     RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
-         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveMeanRate={meanRate_tumour}*10000/L;
+    effectiveMeanRate={meanRate_mu}*{sequence_len}/L;
     logMean = log(effectiveMeanRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_SM}, sdlog = {sdlog_lambda_SM});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_tumour}, sdlog = {sdlog_lambda_tumour});
     mu ~ LogNormal(meanlog = logMean, sdlog=1);
-    tree ~ Yule(lambda=lambda, n=40);
+    tree ~ Yule(lambda=lambda, n={ntaxa});
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -300,7 +385,6 @@ model{{
 }
 # Create output folder if it doesn't exist
 if (!dir.exists("./simpleModel/3-xml/TruewtErrModelScripts")) {
-  dir.create("./simpleModel/3-xml")
   dir.create("./simpleModel/3-xml/TruewtErrModelScripts")
 }
 for (i in 0:99) {
@@ -312,13 +396,13 @@ data {{
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveMeanRate={meanRate_tumour}*10000/L;
+    effectiveMeanRate={meanRate_mu}*{sequence_len}/L;
     logMean = log(effectiveMeanRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_SM}, sdlog = {sdlog_lambda_SM});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_tumour}, sdlog = {sdlog_lambda_tumour});
     mu ~ LogNormal(meanlog = logMean, sdlog=1);
-    tree ~ Yule(lambda=lambda, n=40);
+    tree ~ Yule(lambda=lambda, n={ntaxa});
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -331,69 +415,47 @@ model{{
   file_name <- sprintf("simpleModel/3-xml/TruewtErrModelScripts/TruewtErrModel_r%d.lphy", i)
   writeLines(script, file_name)
 }
+
+
 ## Calibrated Yule Model (CM)
 ## The CalibratedYule model is a tree with two calibration nodes: the root and the mrca of tumour cells. The tree contain 20 normal cells and 20 tumour cells.
-
 ### Simulation
-#### Lambda
-## calculate the bonds for lambda
-calibratedTaxa <- 40 
-lambda_high_CM <- sum(1 / (2:calibratedTaxa)) / normalTreeLow
-lambda_low_CM <- sum(1 / (2:calibratedTaxa)) / normalTreeHigh
-
-# calculate the parameters for log normal distribution
-sdlog_lambda_CM <- (log(lambda_high_CM) - log(lambda_low_CM)) / (2 * z975)
-mean_lambda_CM <- (log(lambda_low_CM) + log(lambda_high_CM)) / 2
-
-#### Calibrations for Normal and Tumour Root
-mean_normalRoot <- (log(normalTreeHigh) + log(normalTreeLow)) / 2
-sdlog_normalRoot <- (log(normalTreeHigh) - log(normalTreeLow)) / (2 * z975)
-
-mean_tumourRoot <- (log(tumourTreeHigh) + log(tumourTreeLow)) / 2
-sdlog_tumourRoot <- (log(tumourTreeHigh) - log(tumourTreeLow)) / (2 * z975)
-
 #### Print Lines
-simulation_parameters_calibrated_model <- sprintf(
-  "lambda ~ LogNormal(meanlog = %.2f, sdlog = %.2f);\n
-    rootAge ~ LogNormal(meanlog = %.2f, sdlog = %.2f);\n
-    tumourAge ~ LogNormal(meanlog = %.2f, sdlog = %.2f);\n
-    rootRate ~ LogNormal(meanlog = %.2f, sdlog = %.2f);\n
-    cladeRate ~ LogNormal(meanlog = %.2f, sdlog = %.2f);\n",
-  mean_lambda_CM, sdlog_lambda_CM,
-  mean_normalRoot, sdlog_normalRoot,
-  mean_tumourRoot, sdlog_tumourRoot,
-  mean_normalRate, sdlog_normalRate,
-  mean_tumourRate, sdlog_tumourRate)
-
 tumour_names_line <- paste0('"', paste0("clade_", 0:19), '"', collapse = ", ")
-
+if (!dir.exists("./calibratedModel/1-simulation/")) {
+  dir.create("./calibratedModel/1-simulation/")
+}
 calibration_model_script <- glue('
 data {{
-    RD = readFasta(file = "/home/yil218/data/chr1.fna");
+    RD = readFasta(file = "/home/yil218/data/10K.fna");
     L = RD.nchar();
-    n = 40;
+    n = {ntaxa};
 }}
 model {{
     snp ~ SNPSampler(alignment=RD, p=0.001);
     D = injectSNP(alignment=RD, snp=snp);
 
-    {simulation_parameters_calibrated_model}
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog ={sdlog_lambda_normal});
+    rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
+    tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
+    rootRate ~ LogNormal(meanlog = {mean_normalRate}, sdlog = {sdlog_normalRate});
+    tumourRate ~ LogNormal(meanlog = {mean_tumourRate}, sdlog = {sdlog_tumourRate});
 
     tumourNames = [{tumour_names_line}];
 
     tumourTaxa = taxa(names = tumourNames);
 
-    tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
     rates ~ Dirichlet(conc=[1.0, 2.0, 1.0, 1.0, 2.0, 1.0]);
     Q = gt16(freq=π, rates=rates);
 
-    A ~ SparsePhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype(), root=D);
+    A ~ PhyloCTMC(L=L, Q=Q, tree=tree, dataType=phasedGenotype(), branchRates = branchRates, root=D);
 }}
 ')
 
@@ -401,7 +463,6 @@ writeLines(calibration_model_script, "./calibratedModel/1-simulation/calibration
 
 # Create output folder if it doesn't exist
 if (!dir.exists("./calibratedModel/1-simulation/lphy_scripts")) {
-  dir.create("./calibratedModel/1-simulation")
   dir.create("./calibratedModel/1-simulation/lphy_scripts")
 }
 for (i in 0:99) {
@@ -409,35 +470,44 @@ for (i in 0:99) {
 data {{
     treeList = readTrees(file="../trueTrees/tree_r{i}.trees");
     tree=treeList[0];
-    RD = readFasta(file = "/home/yil218/data/chr1.fna");
+    RD = readFasta(file = "/home/yil218/data/10K.fna");
     L = RD.nchar();
-    n = 40;
+    n = {ntaxa};
 }}
 model {{
     snp ~ SNPSampler(alignment=RD, p=0.001);
     D = injectSNP(alignment=RD, snp=snp);
 
-    {simulation_parameters_calibrated_model}
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog ={sdlog_lambda_normal});
+    rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
+    tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
+    rootRate ~ LogNormal(meanlog = {mean_normalRate}, sdlog = {sdlog_normalRate});
+    tumourRate ~ LogNormal(meanlog = {mean_tumourRate}, sdlog = {sdlog_tumourRate});
 
     tumourNames = [{tumour_names_line}];
 
     tumourTaxa = taxa(names = tumourNames);
 
-    tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
     rates ~ Dirichlet(conc=[1.0, 2.0, 1.0, 1.0, 2.0, 1.0]);
     Q = gt16(freq=π, rates=rates);
 
-    A ~ SparsePhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype(), root=D);
-    conc = rep(8.0, 40);
-    s ~ Dirichlet(conc=conc, mean=1);
+    A ~ PhyloCTMC(L=L, Q=Q, tree=tree, branchRates=branchRates, dataType=phasedGenotype(), root=D);
+    conc = rep(8.0, {ntaxa});
+    s ~ Dirichlet(conc=conc, sum={ntaxa});
     
-    {readCount_parameters}
+    delta ~ Beta(alpha = {alpha_delta}, beta = {beta_delta});
+    t ~ LogNormal(meanlog = {mean_cov}, sdlog = {sdlog_cov});
+    v ~ LogNormal(meanlog = {mean_v}, sdlog = {sdlog_v});
+    epsilon ~ Beta(alpha = {alpha_epsilon}, beta = {beta_epsilon});
+    w1 ~ LogNormal(meanlog = {mean_w1}, sdlog = {sdlog_w1});
+    w2 ~ LogNormal(meanlog = {mean_w2}, sdlog = {sdlog_w2});
     
     alpha ~ Ploidy(l= L, n= n, delta= delta);
     cov ~ CoverageModel(alpha= alpha, t= t, v= v, s= s); // mimic CRC28 dataset
@@ -460,17 +530,16 @@ for (i in 0:99) {
 data {{
    // alignment
     RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
-         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*10000/L;
+    effectiveNormalRate={meanRate_normal}*{sequence_len}/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*10000/L;
-    logMeanTumour = log(effectiveTumourRate);
+    effectivetumourRate={meanRate_tumour}*{sequence_len}/L;
+    logMeanTumour = log(effectivetumourRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog = {sdlog_lambda_normal});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
@@ -479,7 +548,7 @@ model{{
     tumourNames = [{tumour_names_line}];
 
     tumourTaxa=taxa(names=tumourNames);
-    tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n={ntaxa}, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
     branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
@@ -503,7 +572,6 @@ model{{
 
 # Create output folder if it doesn't exist
 if (!dir.exists("./calibratedModel/3-xml/wtErrModelScripts")) {
-  dir.create("./calibratedModel/3-xml")
   dir.create("./calibratedModel/3-xml/wtErrModelScripts")
 }
 for (i in 0:99) {
@@ -511,17 +579,16 @@ for (i in 0:99) {
 data {{
     // alignment
     RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
-         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
-     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*10000/L;
+    L = A.nchar();
+    effectiveNormalRate={meanRate_normal}*{sequence_len}/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*10000/L;
-    logMeanTumour = log(effectiveTumourRate);
+    effectivetumourRate={meanRate_tumour}*{sequence_len}/L;
+    logMeanTumour = log(effectivetumourRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog = {sdlog_lambda_normal});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
@@ -531,10 +598,10 @@ model{{
 
     tumourTaxa = taxa(names = tumourNames);
 
-    tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n={ntaxa}, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -550,7 +617,6 @@ model{{
 }
 # Create output folder if it doesn't exist
 if (!dir.exists("./calibratedModel/3-xml/TrueErrModelScripts")) {
-  dir.create("./calibratedModel/3-xml")
   dir.create("./calibratedModel/3-xml/TrueErrModelScripts")
 }
 for (i in 0:99) {
@@ -558,17 +624,16 @@ for (i in 0:99) {
 data {{
     // alignment
     RA = readNexus(file = "../../1-simulation/nexus/sequenceGeneration_r{i}_A.nexus");
-         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*10000/L;
+    effectiveNormalRate={meanRate_normal}*{sequence_len}/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*10000/L;
-    logMeanTumour = log(effectiveTumourRate);
+    effectivetumourRate={meanRate_tumour}*{sequence_len}/L;
+    logMeanTumour = log(effectivetumourRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog = {sdlog_lambda_normal});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
@@ -578,10 +643,10 @@ model{{
 
     tumourTaxa = taxa(names = tumourNames);
 
-    tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n={ntaxa}, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -601,7 +666,6 @@ model{{
 }
 # Create output folder if it doesn't exist
 if (!dir.exists("./calibratedModel/3-xml/TruewtErrModelScripts")) {
-  dir.create("./calibratedModel/3-xml")
   dir.create("./calibratedModel/3-xml/TruewtErrModelScripts")
 }
 for (i in 0:99) {
@@ -613,13 +677,13 @@ data {{
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
      L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*10000/L;
+    effectiveNormalRate={meanRate_normal}*{sequence_len}/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*10000/L;
-    logMeanTumour = log(effectiveTumourRate);
+    effectivetumourRate={meanRate_tumour}*{sequence_len}/L;
+    logMeanTumour = log(effectivetumourRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_CM}, sdlog = {sdlog_lambda_CM});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog = {sdlog_lambda_normal});
     rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
@@ -629,10 +693,10 @@ model{{
 
     tumourTaxa = taxa(names = tumourNames);
 
-    tree ~ CalibratedYule(lambda=lambda, n=40, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n={ntaxa}, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], rootAge=rootAge);
 
     tumourRoot = mrca(tree=tree, taxa=tumourNames);
-        branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
     // gt16 model
     π ~ Dirichlet(conc=[3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0]);
@@ -653,30 +717,19 @@ model{{
 ### Sample 20 normal cells and 20 tumour cells to get subsampled tree.
 ### Simulation
 #### Lambda
+bigN <- 10000
+lambda_high_realistic_normal <- sum(1 / (2:bigN)) / normalTreeLow
+lambda_low_realistic_normal <- sum(1 / (2:bigN)) / normalTreeHigh
+bigTreeLambdaParams_normal <- get_lognormal_params(lambda_low_realistic_normal, lambda_high_realistic_normal)
+mean_lambda_RM_normal <- bigTreeLambdaParams_normal$meanlog
+sdlog_lambda_RM_normal <- bigTreeLambdaParams_normal$sdlog
 
-## calculate the bonds for lambda
-n <- 10000 # taxa number
-lambda_high_RM <- sum(1 / (2:n)) / normalTreeLow
-lambda_low_RM <- sum(1 / (2:n)) / normalTreeHigh
-
-## calculate the parameters for log normal distribution
-sdlog_lambda_RM <- (log(lambda_high_RM) - log(lambda_low_RM)) / (2 * z975)
-mean_lambda_RM <- (log(lambda_low_RM) + log(lambda_high_RM)) / 2
-
-
+lambda_high_realistic_tumour <- sum(1 / (2:bigN)) / tumourTreeLow
+lambda_low_realistic_tumour <- sum(1 / (2:bigN)) / tumourTreeHigh
+bigTreeLambdaParams_tumour <- get_lognormal_params(lambda_low_realistic_tumour, lambda_high_realistic_tumour)
+mean_lambda_RM_tumour <- bigTreeLambdaParams_tumour$meanlog
+sdlog_lambda_RM_tumour <- bigTreeLambdaParams_tumour$sdlog
 #### Print Lines
-simulation_parameters_realistic_model <- sprintf(
-  "lambda ~ LogNormal(meanlog = %.2f, sdlog = %.2f);
-tumourAge ~ LogNormal(meanlog = %.2f, sdlog = %.2f);
-rootRate ~ LogNormal(meanlog = %.2f, sdlog = %.2f);
-cladeRate ~ LogNormal(meanlog = %.2f, sdlog = %.2f);
-",
-  mean_lambda_RM, sdlog_lambda_RM,
-  mean_tumourRoot, sdlog_tumourRoot,
-  mean_normalRate, sdlog_normalRate,
-  mean_tumourRate, sdlog_tumourRate
-)
-
 # Create output folder if it doesn't exist
 if (!dir.exists("./realisticModel/1-simulation/lphy_scripts")) {
   dir.create("./realisticModel/1-simulation")
@@ -685,16 +738,20 @@ if (!dir.exists("./realisticModel/1-simulation/lphy_scripts")) {
 for (i in 0:99) {
   script <- glue('
 data {{
-    RD = readFasta(file = \"/home/yil218/data/chr1.fna\");
+    RD = readFasta(file = \"/home/yil218/data/10K.fna\");
     L = RD.nchar();
-    n = 40;
-    bigN = 10000;
+    n = {ntaxa};
+    bigN = {bigN};
 }}
 model{{
     snp ~ SNPSampler(alignment=RD, p=0.001);
     D = injectSNP(alignment=RD, snp=snp);
 
-    {simulation_parameters_realistic_model}
+    lambda ~ LogNormal(meanlog = {mean_lambda_RM_normal}, sdlog ={sdlog_lambda_RM_normal});
+    tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
+    rootRate ~ LogNormal(meanlog = {mean_normalRate}, sdlog = {sdlog_normalRate});
+    tumourRate ~ LogNormal(meanlog = {mean_tumourRate}, sdlog = {sdlog_tumourRate});
+    lambdaT ~ LogNormal(meanlog = {mean_lambda_RM_tumour}, sdlog ={sdlog_lambda_RM_tumour});
     
     // healthy Yule tree
     ψhealthy ~ Yule(lambda=lambda, n=bigN);
@@ -703,7 +760,7 @@ model{{
     node ~ SampleBranch(tree=ψhealthy, age=tumourAge);
 
     // tumour Yule tree with known root age
-    ψtumour ~ Yule(lambda=lambda, n=bigN, rootAge=tumourAge);
+    ψtumour ~ Yule(lambda=lambdaT, n=bigN, rootAge=tumourAge);
 
     // generate the full tree
     nodeLabel = "tumourRoot";
@@ -731,15 +788,20 @@ model{{
     Q = gt16(freq=π, rates=rates);
     
      // generate branch rates
-    branchRates = localClock(tree=ψ, clades=[sampledTumourRoot], cladeRates=[cladeRate], rootRate=rootRate, includeStem=true);
+    branchRates = localClock(tree=ψ, clades=[sampledTumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
 
-    A ~ SparsePhyloCTMC(L=L, Q=Q, tree=ψ, dataType=phasedGenotype(), branchRates = branchRates, root=D);
+    A ~ PhyloCTMC(L=L, Q=Q, tree=ψ, dataType=phasedGenotype(), branchRates = branchRates, root=D);
 
-    conc = rep(8.0, 40);
-    s ~ Dirichlet(conc=conc, mean=1);
+    conc = rep(8.0, {ntaxa});
+    s ~ Dirichlet(conc=conc, sum={ntaxa});
     
-    {readCount_parameters}
+    delta ~ Beta(alpha = {alpha_delta}, beta = {beta_delta});
+    t ~ LogNormal(meanlog = {mean_cov}, sdlog = {sdlog_cov});
+    v ~ LogNormal(meanlog = {mean_v}, sdlog = {sdlog_v});
+    epsilon ~ Beta(alpha = {alpha_epsilon}, beta = {beta_epsilon});
+    w1 ~ LogNormal(meanlog = {mean_w1}, sdlog = {sdlog_w1});
+    w2 ~ LogNormal(meanlog = {mean_w2}, sdlog = {sdlog_w2});
     
     alpha ~ Ploidy(l= L, n= n, delta= delta);
     cov ~ CoverageModel(alpha= alpha, t= t, v= v, s= s); // mimic CRC28 dataset
@@ -751,14 +813,6 @@ model{{
   writeLines(script, file_name)
 }
 
-## inference model
-subsampledTaxa <- 40 
-lambda_high_RMI <- sum(1 / (2:subsampledTaxa)) / 50
-lambda_low_RMI <- sum(1 / (2:subsampledTaxa)) / 90
-
-## calculate the parameters for log normal distribution
-sdlog_lambda_RMI <- (log(lambda_high_RMI) - log(lambda_low_RMI)) / (2 * z975)
-mean_lambda_RMI <- (log(lambda_low_RMI) + log(lambda_high_RMI)) / 2
 
 ## inference model
 # Create output folder if it doesn't exist
@@ -781,25 +835,23 @@ data {{
     
     // alignment
     RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
-         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*10000/L;
+    effectiveNormalRate={meanRate_normal}*{sequence_len}/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*10000/L;
-    logMeanTumour = log(effectiveTumourRate);
+    effectivetumourRate={meanRate_tumour}*{sequence_len}/L;
+    logMeanTumour = log(effectivetumourRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_RMI}, sdlog = {sdlog_lambda_RMI});
-    rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog = {sdlog_lambda_normal});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
     
     tumourTaxa=taxa(names=tumourLeaves);
     normalTaxa=taxa(names=normalLeaves);
-    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa, rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa);
     tumourRoot = mrca(tree=tree, taxa=tumourLeaves);
     branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
@@ -822,7 +874,6 @@ model{{
 
 # Create output folder if it doesn't exist
 if (!dir.exists("./realisticModel/3-xml/wtErrModelScripts")) {
-  dir.create("./realisticModel/3-xml")
   dir.create("./realisticModel/3-xml/wtErrModelScripts")
 }
 for (i in 0:99) {
@@ -840,25 +891,23 @@ data {{
     
     // alignment
     RA = readFasta(file = "../../2-variantCalling/alignment/alignment_r{i}.fasta", sequenceType=phasedGenotype());
-         
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*10000/L;
+    effectiveNormalRate={meanRate_normal}*{sequence_len}/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*10000/L;
-    logMeanTumour = log(effectiveTumourRate);
+    effectivetumourRate={meanRate_tumour}*{sequence_len}/L;
+    logMeanTumour = log(effectivetumourRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_RMI}, sdlog = {sdlog_lambda_RMI});
-    rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog = {sdlog_lambda_normal});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
     
     tumourTaxa=taxa(names=tumourLeaves);
     normalTaxa=taxa(names=normalLeaves);
-    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa, rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa);
     tumourRoot = mrca(tree=tree, taxa=tumourLeaves);
     branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
@@ -876,7 +925,6 @@ model{{
 }
 # Create output folder if it doesn't exist
 if (!dir.exists("./realisticModel/3-xml/TrueErrModelScripts")) {
-  dir.create("./realisticModel/3-xml")
   dir.create("./realisticModel/3-xml/TrueErrModelScripts")
 }
 for (i in 0:99) {
@@ -898,21 +946,20 @@ data {{
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*10000/L;
+    effectiveNormalRate={meanRate_normal}*{sequence_len}/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*10000/L;
-    logMeanTumour = log(effectiveTumourRate);
+    effectivetumourRate={meanRate_tumour}*{sequence_len}/L;
+    logMeanTumour = log(effectivetumourRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_RMI}, sdlog = {sdlog_lambda_RMI});
-    rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog = {sdlog_lambda_normal});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
     
     tumourTaxa=taxa(names=tumourLeaves);
     normalTaxa=taxa(names=normalLeaves);
-    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa, rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa);
     tumourRoot = mrca(tree=tree, taxa=tumourLeaves);
     branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
@@ -934,7 +981,6 @@ model{{
 }
 # Create output folder if it doesn't exist
 if (!dir.exists("./realisticModel/3-xml/TruewtErrModelScripts")) {
-  dir.create("./realisticModel/3-xml")
   dir.create("./realisticModel/3-xml/TruewtErrModelScripts")
 }
 for (i in 0:99) {
@@ -956,21 +1002,20 @@ data {{
     var = variableSites(alignment=RA);
     A = copySites(ids=var, alignment=RA);
     L = A.nchar();
-    effectiveNormalRate={meanRate_normal}*10000/L;
+    effectiveNormalRate={meanRate_normal}*{sequence_len}/L;
     logMeanNormal = log(effectiveNormalRate);
-    effectiveTumourRate={meanRate_tumour}*10000/L;
-    logMeanTumour = log(effectiveTumourRate);
+    effectivetumourRate={meanRate_tumour}*{sequence_len}/L;
+    logMeanTumour = log(effectivetumourRate);
 }}
 model{{
-    lambda ~ LogNormal(meanlog = {mean_lambda_RMI}, sdlog = {sdlog_lambda_RMI});
-    rootAge ~ LogNormal(meanlog = {mean_normalRoot}, sdlog = {sdlog_normalRoot});
+    lambda ~ LogNormal(meanlog = {meanlog_lambda_normal}, sdlog = {sdlog_lambda_normal});
     tumourAge ~ LogNormal(meanlog = {mean_tumourRoot}, sdlog = {sdlog_tumourRoot});
     rootRate ~ LogNormal(meanlog = logMeanNormal, sdlog=1);
     tumourRate ~ LogNormal(meanlog = logMeanTumour, sdlog=1);
     
     tumourTaxa=taxa(names=tumourLeaves);
     normalTaxa=taxa(names=normalLeaves);
-    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa, rootAge=rootAge);
+    tree ~ CalibratedYule(lambda=lambda, n=n, cladeTaxa=tumourTaxa, cladeMRCAAge=[tumourAge], otherTaxa=normalTaxa);
     tumourRoot = mrca(tree=tree, taxa=tumourLeaves);
     branchRates = localClock(tree=tree, clades=[tumourRoot], cladeRates=[tumourRate], rootRate=rootRate, includeStem=true);
 
@@ -986,4 +1031,3 @@ model{{
   file_name <- sprintf("realisticModel/3-xml/TruewtErrModelScripts/TruewtErrModel_r%d.lphy", i)
   writeLines(script, file_name)
 }
-

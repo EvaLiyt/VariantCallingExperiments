@@ -1,4 +1,11 @@
 #!/bin/bash
+#SBATCH -J CM_runLphy
+#SBATCH -A uoa04397
+#SBATCH --time=5:00:00
+#SBATCH --mem=4G
+#SBATCH --cpus-per-task=4
+#SBATCH --mail-user=yil218@aucklanduni.ac.nz
+#SBATCH --mail-type=ALL
 
 # Paths
 lphy_dir="./lphy_scripts"
@@ -15,7 +22,7 @@ for lphy_file in ${lphy_dir}/*.lphy; do
     cat > "${job_script}" <<EOF
 #!/bin/bash
 #SBATCH -J CM_r${id}
-#SBATCH -A nesi00390
+#SBATCH -A uoa04397
 #SBATCH --time=5:00:00
 #SBATCH --mem=24G
 #SBATCH --cpus-per-task=4

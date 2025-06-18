@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH -J RM_runFollowing
-#SBATCH -A nesi00390            # Account code
+#SBATCH -J RM_runMerging
+#SBATCH -A uoa04397            # Account code
 #SBATCH --time=16:00:00         # Walltime
 #SBATCH --cpus-per-task=1       # OpenMP Threads
 #SBATCH --ntasks=1              # Not using MPI
@@ -9,6 +9,7 @@
 #SBATCH --mail-user=yil218@aucklanduni.ac.nz
 #SBATCH --mail-type=ALL 
 
+chmod +x *sh
 ./filter.sh
 ./modifyVCFs.sh
 ./getGZfiles.sh
@@ -19,6 +20,6 @@ python changeVCFnames.py
 
 ./mergeVCF.sh
 python changePL.py
-python getRefSeq.py
+python getHomoRef.py
 
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -J CM_getTrees
-#SBATCH -A nesi00390            # Account code
+#SBATCH -A uoa04397            # Account code
 #SBATCH --time=4:00:00         # Walltime
 #SBATCH --cpus-per-task=1       # OpenMP Threads
 #SBATCH --mem=8G              # Adjust memory as needed
@@ -22,7 +22,7 @@ lphybeastVersionFile="/home/yil218/.beast/2.7/lphybeast/version.xml"
 flcVersionFile="/home/yil218/.beast/2.7/lphybeast.flc/version.xml"
 lphybeastPath="/home/yil218/beast/bin"
 
-${lphybeastPath}/lphybeast -vf "${phyloncoVersionFile},${lphybeastVersionFile},${flcVersionFile}" -l 20000000 "$lphy_file"
+${lphybeastPath}/lphybeast -vf "${phyloncoVersionFile},${lphybeastVersionFile},${flcVersionFile}" -sp -l 20000000 "$lphy_file"
 
 echo "XML files are generated."
 

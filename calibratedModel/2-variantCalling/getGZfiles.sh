@@ -24,7 +24,7 @@ for subfolder in "${input_folder}"/*; do
 
             # Normalisation
             norm_file="${subfolder}/${filename%.vcf}.norm.vcf.gz"  # Avoid double .gz
-            bcftools norm -Oz -f ~/data/chr1.fna -o "${norm_file}" "${gz_file}"
+            bcftools norm -Oz -f ~/data/10K.fna -o "${norm_file}" "${gz_file}"
 
             # Index the gz file
             bcftools index "${norm_file}"

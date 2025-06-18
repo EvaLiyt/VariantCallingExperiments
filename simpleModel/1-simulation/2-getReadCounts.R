@@ -5,7 +5,7 @@ library(data.table)
 # ==== Define folders ====
 readcount_dir <- "./readcount"
 nexus_dir <- "./nexus"
-ref_path <- "/home/yil218/data/chr1.fna"
+ref_path <- "/home/yil218/data/10K.fna"
 output_base <- "./pileup"
 # Remove and recreate top-level output folder if exists
 if (dir.exists(output_base)) {
