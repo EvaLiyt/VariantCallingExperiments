@@ -1,31 +1,16 @@
 import os
 import shutil
 import csv
-from Bio import SeqIO
 import re
+from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 # Define folder paths
 input_folder = "./comparison"
 output_folder = "./stats"
 site_folder = "./sites"
-vcf_folder = "../2-variantCalling/filtered"
-ref_folder = "../1-simulation/root"
-ref = "/home/yil218/data/10K.fna"
-ref_length = len(next(SeqIO.parse(ref, "fasta")).seq)
-
-# Ensure output folder exists and clear it
-if not os.path.exists(output_folder):
-    os.makedirs(output_folder)
-else:
-    for filename in os.listdir(output_folder):
-        file_path = os.path.join(output_folder, filename)
-        try:
-            if os.path.isfile(file_path):
-                os.remove(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        except Exception as e:
-            print(f"Error removing {file_path}: {e}")
+ref_length = 10000
 
 # Genotype mapping
 genotype_map = {
@@ -38,229 +23,255 @@ genotype_map = {
 }
 
 
-# Function to apply genotype mapping
 def map_genotype(genotype):
     return genotype_map.get(genotype, genotype)
 
 
-# Function to read genotypes from input files
-def read_genotype_from_files():
+def read_genotype_from_files(r_folder):
+    """Optimized genotype reading with batch processing"""
     genotypes = {}
-    print("Reading genotypes from files in the comparison folder...")
-    for subfolder in os.listdir(input_folder):
-        subfolder_path = os.path.join(input_folder, subfolder)
-        if os.path.isdir(subfolder_path):
-            print(f"Reading from subfolder: {subfolder}")
-            for filename in os.listdir(subfolder_path):
-                if filename.endswith("rx_pairwise.tsv"):
-                    print(f"Skipping file: {filename}")
-                    continue
-                file_path = os.path.join(subfolder_path, filename)
-                if os.path.isfile(file_path):
-                    print(f"Processing file: {filename}")
-                    with open(file_path, 'r') as file:
-                        for line in file.readlines():
-                            if line.startswith("site"):
-                                continue
-                            cols = line.strip().split('\t')
-                            if len(cols) < 4:
-                                print(f"Warning: Skipping malformed line in {filename}: {line.strip()}")
-                                continue
-                            site = cols[0]
-                            true_genotype = map_genotype(cols[2])
-                            final_genotype = map_genotype(cols[3])
-                            genotypes[(filename, site)] = (true_genotype, final_genotype)
+    print(f"Reading genotypes from {r_folder}...")
+
+    subfolder_path = os.path.join(input_folder, r_folder)
+    if not os.path.isdir(subfolder_path):
+        return genotypes
+
+    # Process all files in the folder
+    for filename in os.listdir(subfolder_path):
+        file_path = os.path.join(subfolder_path, filename)
+        if not os.path.isfile(file_path):
+            continue
+
+        try:
+            with open(file_path, 'r') as file:
+                # Skip header and process all lines at once
+                lines = file.readlines()
+                for line in lines:
+                    if line.startswith("site"):
+                        continue
+
+                    cols = line.strip().split('\t')
+                    if len(cols) >= 4:  # Safety check
+                        site = cols[0]
+                        ref_genotype = map_genotype(cols[1])
+                        true_genotype = map_genotype(cols[2])
+                        final_genotype = map_genotype(cols[3])
+                        genotypes[(filename, site)] = (ref_genotype, true_genotype, final_genotype)
+        except Exception as e:
+            print(f"Error reading {file_path}: {e}")
+
     return genotypes
 
 
-def compare_genotypes_with_sites(genotypes):
+def read_site_file(site_file_path):
+    """Optimized site file reading"""
+    positive_sites = set()
+    negative_sites = set()
+    current_section = None
+
+    try:
+        with open(site_file_path, 'r') as site_file:
+            for line in site_file:
+                line = line.strip()
+                if line == "positive_sites":
+                    current_section = "positive"
+                elif line == "negative_sites":
+                    current_section = "negative"
+                elif current_section == "positive" and line:
+                    positive_sites.add(line)
+                elif current_section == "negative" and line:
+                    negative_sites.add(line)
+    except Exception as e:
+        print(f"Error reading site file {site_file_path}: {e}")
+
+    return positive_sites, negative_sites
+
+
+def compare_genotypes_with_sites(r_folder, genotypes):
+    """Optimized genotype comparison with vectorized operations"""
+    print(f"Comparing genotypes with sites for {r_folder}...")
     results = {}
-    print("Comparing genotypes with sites...")
 
-    # Cache ref lengths to avoid repeated loading
-    ref_lengths = {}
+    subfolder_path = os.path.join(site_folder, r_folder)
+    if not os.path.isdir(subfolder_path):
+        return results
 
-    for subfolder in os.listdir(site_folder):
-        subfolder_path = os.path.join(site_folder, subfolder)
-        if os.path.isdir(subfolder_path):
-            print(f"  Processing subfolder: {subfolder}")
-            for filename in os.listdir(subfolder_path):
-                site_file_path = os.path.join(subfolder_path, filename)
-                if os.path.isfile(site_file_path):
-                    print(f"Reading site file: {filename}")
-                    positive_sites = set()
-                    negative_sites = set()
-                    current_section = None
-                    with open(site_file_path, 'r') as site_file:
-                        for line in site_file:
-                            line = line.strip()
-                            if line == "positive_sites":
-                                current_section = "positive"
-                                continue
-                            elif line == "negative_sites":
-                                current_section = "negative"
-                                continue
-                            if current_section == "positive":
-                                positive_sites.add(line)
-                            elif current_section == "negative":
-                                negative_sites.add(line)
+    # Pre-build lookup table for genotypes by cell name
+    genotype_by_cell = defaultdict(dict)
+    for (filename, site), (ref_gen, true_gen, final_gen) in genotypes.items():
+        cell_name = filename.split('_r')[0]
+        genotype_by_cell[cell_name][site] = (ref_gen, true_gen, final_gen)
 
-                    match = re.search(r"r(\d+)_minD(\d+)_minVar(\d+)", filename)
-                    if match:
-                        r_value = int(match.group(1))
-                        minD_value = int(match.group(2))
-                        minVar_value = int(match.group(3))
+    # Pre-generate all sites as strings for faster lookup
+    all_sites = {str(i) for i in range(1, ref_length + 1)}
+
+    for filename in os.listdir(subfolder_path):
+        site_file_path = os.path.join(subfolder_path, filename)
+        if not os.path.isfile(site_file_path):
+            continue
+
+        positive_sites, negative_sites = read_site_file(site_file_path)
+        cell_name = filename.split('_r')[0]
+
+        # Initialize stats
+        stats = {'true_positive': 0, 'false_positive': 0, 'true_negative': 0, 'false_negative': 0}
+
+        # Get genotypes for this cell
+        cell_genotypes = genotype_by_cell.get(cell_name, {})
+
+        # Vectorized processing of all sites
+        for site in all_sites:
+            if site in cell_genotypes:
+                ref_genotype, true_genotype, final_genotype = cell_genotypes[site]
+                is_match = true_genotype == final_genotype
+                is_var = ref_genotype != true_genotype
+
+                if site in positive_sites:
+                    if is_var:
+                        if is_match:
+                            stats['true_positive'] += 1
                     else:
-                        print(f"Filename {filename} does not match expected pattern.")
-                        continue
-
-                    cell_name = filename.split('_r')[0]
-
-                    cell_genotypes = {
-                        site: (true_genotype, final_genotype)
-                        for (file, site), (true_genotype, final_genotype) in genotypes.items()
-                        if file.split("_r")[0] == cell_name
-                    }
-
-                    stats = {'true_positive': 0, 'false_positive': 0, 'true_negative': 0, 'false_negative': 0}
-                    details = []
-
-                    comparison_sites = set(cell_genotypes.keys())
-                    all_sites = positive_sites | negative_sites
-                    missing_in_comparison = all_sites - comparison_sites
-
-                    for site in missing_in_comparison:
+                        # not match or not var
+                        stats['false_positive'] += 1
+                elif site in negative_sites:
+                    if is_var:
+                        stats['false_negative'] += 1
+                    else :
                         stats['true_negative'] += 1
-                        details.append((site, "NA", "true_negative"))
+                else:
+                    if is_var : # site is considered var, or site is not called
+                        stats['false_negative'] += 1
+                    else:
+                        stats['true_negative'] += 1
+            else:
+                # No genotype data for this site
+                if site in positive_sites:
+                    stats['false_positive'] += 1
+                else:
+                    stats['true_negative'] += 1
 
-                    for site, (true_genotype, final_genotype) in cell_genotypes.items():
-                        mapped_true_genotype = map_genotype(true_genotype)
-                        mapped_final_genotype = map_genotype(final_genotype)
-
-                        if site in positive_sites:
-                            if mapped_final_genotype == mapped_true_genotype:
-                                stats['true_positive'] += 1
-                            else:
-                                stats['false_positive'] += 1
-                                details.append((site, final_genotype, "false_positive"))
-                        elif site in negative_sites:
-                            if mapped_final_genotype == mapped_true_genotype:
-                                stats['true_negative'] += 1
-                            else:
-                                stats['false_negative'] += 1
-                                details.append((site, true_genotype, "false_negative"))
-                        else:
-                            stats['false_negative'] += 1
-
-                    considered_num = stats['true_positive'] + stats['false_positive'] + stats['true_negative'] + stats['false_negative']
-                    stats['true_negative'] = ref_length - considered_num
-
-                    results[(r_value, minD_value, minVar_value, cell_name)] = (stats, details)
+        results[cell_name] = stats
 
     return results
 
 
-def calc_true_positive_rate(results):
-    tpr_results = {}
-    for key, (stats, _) in results.items():
-        tp = stats['true_positive']
-        fn = stats['false_negative']
-        tpr = tp / (tp + fn) if (tp + fn) > 0 else None
-        tpr_results[key] = tpr
-    return tpr_results
+def calc_metrics(stats):
+    """Calculate all metrics at once"""
+    tp, fp, tn, fn = stats['true_positive'], stats['false_positive'], stats['true_negative'], stats['false_negative']
 
+    tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
 
-def calc_false_positive_rate(results):
-    fpr_results = {}
-    for key, (stats, _) in results.items():
-        fp = stats['false_positive']
-        tn = stats['true_negative']
-        fpr = fp / (fp + tn) if (fp + tn) > 0 else None
-        fpr_results[key] = fpr
-    return fpr_results
-
-
-def calc_precision(results):
-    precision_results = {}
-    for key, (stats, _) in results.items():
-        tp = stats['true_positive']
-        fp = stats['false_positive']
-        precision = tp / (tp + fp) if (tp + fp) > 0 else None
-        precision_results[key] = precision
-    return precision_results
+    return tpr, fpr, precision
 
 
 def sorted_cell_names(cell_names):
-    clade_names = sorted([name for name in cell_names if "clade" in name],
-                         key=lambda x: int(re.search(r'\d+', x).group()))
-    normal_names = sorted([name for name in cell_names if "clade" not in name],
-                          key=lambda x: int(re.search(r'\d+', x).group()))
-    return normal_names + clade_names
+    """Optimized sorting with compiled regex"""
+    number_pattern = re.compile(r'\d+')
+
+    def extract_number(name):
+        match = number_pattern.search(name)
+        return int(match.group()) if match else 0
+
+    clade = [name for name in cell_names if "clade" in name]
+    normal = [name for name in cell_names if "clade" not in name]
+
+    return sorted(normal, key=extract_number) + sorted(clade, key=extract_number)
 
 
-def main():
-    print("Starting the analysis...")
+def process_single_r(r):
+    """Process a single r value - for potential multiprocessing"""
+    r_folder = f"r{r}"
+    site_path = os.path.join(site_folder, r_folder)
 
-    genotypes = read_genotype_from_files()
-    print("Genotypes loaded, now comparing with sites...")
+    if not os.path.exists(site_path):
+        return None
 
-    results = compare_genotypes_with_sites(genotypes)
-    print("Comparison complete. Results generated.")
+    # Extract minD and minVar values from filenames
+    minD_value = minVar_value = None
+    try:
+        for filename in os.listdir(site_path):
+            match = re.search(r"minD(\d+)_minVar(\d+)", filename)
+            if match:
+                minD_value = int(match.group(1))
+                minVar_value = int(match.group(2))
+                break
+    except Exception as e:
+        print(f"Error processing {r_folder}: {e}")
+        return None
 
-    tpr_results = calc_true_positive_rate(results)
-    fpr_results = calc_false_positive_rate(results)
-    precision_results = calc_precision(results)
+    if minD_value is None or minVar_value is None:
+        print(f"Could not extract minD/minVar for r{r}")
+        return None
 
-    summary_path = os.path.join(output_folder, "summary.csv")
-    summary_exists = os.path.isfile(summary_path)
+    try:
+        genotypes = read_genotype_from_files(r_folder)
+        if not genotypes:
+            print(f"No genotypes found for {r_folder}")
+            return None
 
-    with open(summary_path, 'a', newline='') as summary_file:
-        summary_writer = csv.writer(summary_file)
-        if not summary_exists:
-            summary_writer.writerow(['r_value', 'minD_value', 'minVar_value', 'Mean_TPR', 'Mean_FPR', 'Mean_Precision'])
+        cell_stats = compare_genotypes_with_sites(r_folder, genotypes)
+        if not cell_stats:
+            print(f"No cell stats generated for {r_folder}")
+            return None
 
-        for (r_value, minD_value, minVar_value) in sorted({(r, d, v) for r, d, v, _ in results.keys()}):
-            filtered_results = [
-                (tpr_results[k], fpr_results[k], precision_results[k])
-                for k in results.keys() if k[0] == r_value and k[1] == minD_value and k[2] == minVar_value
-            ]
-
-            mean_tpr = sum(t[0] for t in filtered_results if t[0] is not None) / len(filtered_results)
-            mean_fpr = sum(t[1] for t in filtered_results if t[1] is not None) / len(filtered_results)
-            mean_precision = sum(t[2] for t in filtered_results if t[2] is not None) / len(filtered_results)
-
-            summary_writer.writerow([r_value, minD_value, minVar_value, mean_tpr, mean_fpr, mean_precision])
-            print(f"Summary for r={r_value}, minD={minD_value}, minVar={minVar_value} written.")
-
-    print("Writing cell-specific files...")
-    for (r_value, minD_value, minVar_value) in sorted({(r, d, v) for r, d, v, _ in results.keys()}):
-        csv_filename = f"stats_r{r_value}_minD{minD_value}_minVar{minVar_value}.csv"
-        csv_path = os.path.join(output_folder, csv_filename)
-
-        with open(csv_path, 'w', newline='') as csvfile:
+        # Write output file
+        output_file = os.path.join(output_folder, f"stats_{r_folder}_minD{minD_value}_minVar{minVar_value}.csv")
+        with open(output_file, 'w', newline='') as csvfile:
             fieldnames = ['Cell', 'TP', 'FP', 'TN', 'FN', 'TPR', 'FPR', 'Precision']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
 
-            cell_names = [cell_name for (r, d, v, cell_name) in results.keys()
-                          if r == r_value and d == minD_value and v == minVar_value]
-            sorted_names = sorted_cell_names(cell_names)
+            for cell in sorted_cell_names(cell_stats.keys()):
+                stats = cell_stats[cell]
+                tpr, fpr, precision = calc_metrics(stats)
 
-            for cell_name in sorted_names:
-                (stats, _) = results[(r_value, minD_value, minVar_value, cell_name)]
                 writer.writerow({
-                    'Cell': cell_name,
+                    'Cell': cell,
                     'TP': stats['true_positive'],
                     'FP': stats['false_positive'],
                     'TN': stats['true_negative'],
                     'FN': stats['false_negative'],
-                    'TPR': tpr_results[(r_value, minD_value, minVar_value, cell_name)],
-                    'FPR': fpr_results[(r_value, minD_value, minVar_value, cell_name)],
-                    'Precision': precision_results[(r_value, minD_value, minVar_value, cell_name)],
+                    'TPR': tpr,
+                    'FPR': fpr,
+                    'Precision': precision,
                 })
-        print(f"File {csv_filename} written.")
 
-    print("All files have been successfully generated!")
+        print(f"Wrote {output_file}")
+        return output_file
+
+    except Exception as e:
+        print(f"Error processing r{r}: {e}")
+        return None
+
+
+def main():
+    # Ensure output folder exists and clear it
+    os.makedirs(output_folder, exist_ok=True)
+    for filename in os.listdir(output_folder):
+        file_path = os.path.join(output_folder, filename)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+
+    # Find all available r values
+    available_r_values = []
+    for r in range(0, 100):
+        r_folder = f"r{r}"
+        site_path = os.path.join(site_folder, r_folder)
+        if os.path.exists(site_path):
+            available_r_values.append(r)
+
+    print(f"Found {len(available_r_values)} r values to process")
+
+    # Option 1: Sequential processing (safer, easier to debug)
+    successful_files = []
+    for r in available_r_values:
+        result = process_single_r(r)
+        if result:
+            successful_files.append(result)
+
+    print(f"Successfully generated {len(successful_files)} stats files.")
 
 
 if __name__ == "__main__":

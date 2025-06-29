@@ -42,7 +42,7 @@ def get_sequence_from_fasta(fasta_file, cell_name):
 def get_all_names_from_fasta(fasta_file):
     return [record.id for record in SeqIO.parse(fasta_file, "fasta")]
 
-def compute_pairwise_diff(seq1, seq2):
+def compute_hammingDist_diff(seq1, seq2):
     return sum(1 for i in range(min(len(seq1), len(seq2))) if seq1[i] != seq2[i])
 
 def process_r_folder(r_folder_name):
@@ -63,9 +63,9 @@ def process_r_folder(r_folder_name):
             print(f"[WARNING] Missing sequences for cell {cell_name} in {r_folder_name}")
             continue
 
-        pairwise_diff = compute_pairwise_diff(ref_seq, true_seq)
+        hammingDist_diff = compute_hammingDist_diff(ref_seq, true_seq)
 
-        results.append((r_folder_name, cell_name, pairwise_diff))
+        results.append((r_folder_name, cell_name, hammingDist_diff))
 
     return results
 
@@ -80,9 +80,9 @@ def main():
         except Exception as e:
             print(f"[ERROR] Processing {r_folder_name}: {e}")
 
-    output_path = os.path.join(output_folder, "pairwise.tsv")
+    output_path = os.path.join(output_folder, "hammingDist.tsv")
     with open(output_path, 'w') as out_f:
-        out_f.write("r_folder\tcell_name\tpairwiseDiff2\n")
+        out_f.write("r_folder\tcell_name\thammingDistDiff2\n")
         for r, cell, diff in all_results:
             out_f.write(f"{r}\t{cell}\t{diff}\n")
 

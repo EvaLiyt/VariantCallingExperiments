@@ -219,4 +219,16 @@ with open(output_csv, 'w', newline='') as out_file:
             "avg_mutation_tumour": avg(list(mutation_tumour))
         })
         
+output_file = os.path.join(output_dir, "sequence_comparison_results.csv")
+with open(output_file, 'w', newline='') as csvfile:
+    fieldnames = ['r', 'clade_mean', 'clade_std', 'non_clade_mean', 'non_clade_std', 'avg_diff_sites']
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    writer.writeheader()
 
+    for r in r_values:
+        result = process_r_value(r, root_dir=root_dir, nexus_dir=nexus_dir)
+        if result:
+            print(f"Processed r={r}: {result}")
+            writer.writerow(result)
+
+print("Done.")

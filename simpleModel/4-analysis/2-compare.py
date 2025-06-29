@@ -4,7 +4,7 @@ import shutil
 input_folder = "./files"
 output_folder = "./comparison"
 site_folder = "./sites"
-params="../1-simulation/pileup"
+params = "../1-simulation/pileup"
 vcf_folder = "../2-variantCalling/filtered"
 
 print("Current working directory:", os.getcwd())
@@ -26,6 +26,7 @@ for folder in [output_folder, site_folder]:
             except Exception as e:
                 print(f"Error removing {file_path}: {e}")
 
+
 def read_sequences_from_file(file_path):
     """Reads sequences from a file and returns them as a list."""
     with open(file_path, 'r') as file:
@@ -33,13 +34,15 @@ def read_sequences_from_file(file_path):
         # Skip the first line (assuming it's a header) and strip newlines
         return [seq.strip() for seq in sequences[1:]]  # Assuming sequences start from the second line
 
+
 def compare_sequences(seq1, seq2, seq3):
-    """Compare three sequences and find differing sites."""
+    """Compare true and final sequences and find differing sites."""
     differing_sites = []
     for i in range(min(len(seq1), len(seq2), len(seq3))):  # Compare only up to the shortest sequence
-        if seq1[i] != seq2[i] or seq2[i] != seq3[i] or seq1[i] != seq3[i]:
+        if seq1[i] != seq2[i] or seq2[i] != seq3[i]:
             differing_sites.append((i + 1, seq1[i], seq2[i], seq3[i]))  # Store 1-based index and the differing bases
     return differing_sites
+
 
 def parse_params(file_name):
     base_name = os.path.basename(file_name)
@@ -75,12 +78,12 @@ def process_r_folder(r_folder_name):
     # Create subdirectories if they don't exist
     os.makedirs(sub_output_folder, exist_ok=True)
     os.makedirs(sub_site_folder, exist_ok=True)
-    
+
     params_file = os.path.join(params, r_folder_name, f"parameters_{r_folder_name}.txt")
     r, minD, minVar = parse_params(params_file)
     for fasta_file in os.listdir(sub_input_folder):
         fasta_path = os.path.join(sub_input_folder, fasta_file)
-        
+
         sequences = read_sequences_from_file(fasta_path)
         if len(sequences) != 3:
             print(f"File '{fasta_file}' does not contain exactly 3 sequences. Skipping.")
@@ -107,7 +110,7 @@ def process_r_folder(r_folder_name):
 
     for vcf_file in os.listdir(vcf_r_folder):
         vcf_path = os.path.join(vcf_r_folder, vcf_file)
-        
+
         pos_list_positive = []
         pos_list_negative = []
         with open(vcf_path, 'r') as vcf:
@@ -123,7 +126,7 @@ def process_r_folder(r_folder_name):
         # Write POS data to site folder
         parts = vcf_file.split(".")[0].split("_")
         name = f"{'_'.join(parts[1:])}_{parts[0]}_minD{minD}_minVar{minVar}"
-        
+
         site_file_path = os.path.join(sub_site_folder, f"{name}.tsv")
         with open(site_file_path, 'w') as site_file:
             site_file.write("positive_sites\n")
@@ -133,10 +136,13 @@ def process_r_folder(r_folder_name):
 
         print(f"VCF sites for '{vcf_file}' written to '{site_file_path}'.")
 
+
 def main():
-    for i in range(100):  # Process r0 to r99
+    # Process r0 to r99
+    for i in range(100):
         r_folder_name = f"r{i}"
         process_r_folder(r_folder_name)
+
 
 if __name__ == "__main__":
     main()
