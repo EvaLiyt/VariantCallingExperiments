@@ -35,7 +35,7 @@ for mcmc_file in "$results_folder"/*.trees; do
     echo "Processing: $mcmc_filename"
     echo "Running: java -jar $jar_path -trees $mcmc_file -burnin $burnin -tree $true_tree_path -out $output_file"
 
-    java -jar "$jar_path" \
+    ~/zulu17.54.21-ca-fx-jdk17.0.13-linux_x64/bin/java -jar "$jar_path" \
         -trees "$mcmc_file" \
         -burnin "$burnin" \
         -tree "$true_tree_path" \

@@ -130,7 +130,7 @@ if (length(all_results) == 0) {
   }
   
   # Define the full path for the output file
-  output_file <- file.path(output_folder, "tree_analysis_results_238.csv")
+  output_file <- file.path(output_folder, "tree_analysis_results.csv")
   
   # Save the final results as a CSV file
   write.csv(final_results, output_file, row.names = FALSE)

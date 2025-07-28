@@ -19,7 +19,7 @@ for mcmc_file in "$results_folder"/*.trees; do
     r_number=$(echo "$mcmc_filename" | grep -oP "_r\K[0-9]+") # Extract the number after "_r"
 
     # Construct the corresponding true tree file path
-    true_tree_filename="sequenceGeneration_r${r_number}_psilabelled.trees"
+    true_tree_filename="sequenceGeneration_r${r_number}_psi.trees"
     true_tree_path="$data_trees_folder/$true_tree_filename"
 
     # Check if the true tree file exists
@@ -35,7 +35,7 @@ for mcmc_file in "$results_folder"/*.trees; do
     echo "Processing: $mcmc_filename"
     echo "Running: java -jar $jar_path -trees $mcmc_file -burnin $burnin -tree $true_tree_path -out $output_file"
 
-    java -jar "$jar_path" \
+    ~/zulu17.54.21-ca-fx-jdk17.0.13-linux_x64/bin/java -jar "$jar_path" \
         -trees "$mcmc_file" \
         -burnin "$burnin" \
         -tree "$true_tree_path" \
