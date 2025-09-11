@@ -54,7 +54,13 @@ def calculate_means(values):
 
 def main():
     stats_folder = "./stats"
-    output_file = os.path.join(stats_folder, "summary.csv")
+    output_folder = "./summary"
+    output_file = os.path.join(output_folder, "summary.csv")
+    output_folder = "./summary"
+    output_file = os.path.join(output_folder, "summary.csv")
+
+    # Create folder if it doesn’t exist
+    os.makedirs(output_folder, exist_ok=True)
     
     if not os.path.exists(stats_folder):
         print(f"Stats folder {stats_folder} does not exist!")

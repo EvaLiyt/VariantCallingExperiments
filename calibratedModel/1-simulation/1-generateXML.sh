@@ -2,7 +2,7 @@
 
 #SBATCH -J CM_getTrees
 #SBATCH -A uoa04397            # Account code
-#SBATCH --time=4:00:00         # Walltime
+#SBATCH --time=2:00:00         # Walltime
 #SBATCH --cpus-per-task=1       # OpenMP Threads
 #SBATCH --mem=8G              # Adjust memory as needed
 #SBATCH --ntasks=1              # Not using MPI
@@ -13,7 +13,7 @@
 # Load necessary modules
 module load Java/17
 module load Python/3.11.3-gimkl-2022a
-slphy="/home/yil218/lphy-studio-1.6.1/bin/slphy"
+slphy="/home/yil218/lphy-studio-1.7.0/bin/slphy"
 lphy_file="./calibrationSimulation.lphy"
 ##${slphy} $lphy_file
 

@@ -19,7 +19,7 @@ for mcmc_file in "$results_folder"/*.trees; do
     r_number=$(echo "$mcmc_filename" | grep -oP "_r\K[0-9]+") # Extract the number after "_r"
 
     # Construct the corresponding true tree file path
-    true_tree_filename="sequenceGeneration_r${r_number}_psi.trees"
+    true_tree_filename="sequenceGeneration_r${r_number}_tree.trees"
     true_tree_path="$data_trees_folder/$true_tree_filename"
 
     # Check if the true tree file exists

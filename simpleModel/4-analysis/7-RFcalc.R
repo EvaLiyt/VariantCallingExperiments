@@ -82,7 +82,7 @@ for (true_tree_file in true_tree_files) {
         mae_length <- abs(tree_length_true - tree_length_consensus)
         
         # minD and minVar
-        param_file <- file.path(paramsFolder, paste0("r", r_value), paste0("parameter_r", r_value, ".txt"))
+        param_file <- file.path(paramsFolder, paste0("r", r_value), paste0("parameters_r", r_value, ".txt"))
         params <- parse_params(param_file)
         
         # Access minD and minVar

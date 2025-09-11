@@ -5,7 +5,7 @@ library(data.table)
 # ==== Define folders ====
 readcount_dir <- "./readcount"
 nexus_dir <- "./nexus"
-ref_path <- "/home/yil218/data/chr1.fna"
+ref_path <- "/home/yil218/data/10K.fna"
 output_base <- "./pileup"
 # Remove and recreate top-level output folder if exists
 if (dir.exists(output_base)) {
@@ -56,7 +56,7 @@ for (file_path in readcount_files) {
   # Load readcount lines
   lines <- readLines(file_path)
   if (length(cell_names) != length(lines)) {
-    cat("Cell name count does not match line count in", r_number, "\n")
+    cat("Cell name count", length(cell_names), "does not match line count",length(lines),"in", r_number, "\n")
     next
   }
 

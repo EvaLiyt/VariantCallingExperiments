@@ -5,7 +5,7 @@ library(data.table)
 # ==== Define folders ====
 readcount_dir <- "./readcount"
 nexus_dir <- "./nexus"
-ref_path <- "/home/yil218/data/chr1.fna"
+ref_path <- "/home/yil218/data/10K.fna"
 output_base <- "./pileup"
 # Remove and recreate top-level output folder if exists
 if (dir.exists(output_base)) {
@@ -56,7 +56,7 @@ for (file_path in readcount_files) {
   # Load readcount lines
   lines <- readLines(file_path)
   if (length(cell_names) != length(lines)) {
-    cat("Cell name count does not match line count in", r_number, "\n")
+    cat("Cell name count", length(cell_names), "does not match line count",length(lines),"in", r_number, "\n")
     next
   }
 
@@ -96,14 +96,13 @@ for (file_path in readcount_files) {
         }
       }
 
-    rows_list[[row_idx]] <- list(
-      Name = "chr1",
-      Position = pos,
-      Ref = ref_base,
-      Count = count_sum,
-      ReadResults = read_result
-    )
-
+      rows_list[[row_idx]] <- list(
+        Name = "chr1",
+        Position = pos,
+        Ref = ref_base,
+        Count = count_sum,
+        ReadResults = read_result
+      )
       row_idx <- row_idx + 1
     }
 
@@ -118,8 +117,7 @@ for (file_path in readcount_files) {
     # Output file
     cell_name <- cell_names[i]
     output_file <- file.path(output_folder, paste0(cell_name, ".pileup"))
-      fwrite(cell_pileup, file = output_file, sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
-
+    fwrite(cell_pileup, file = output_file, sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
 
     cat(r_number, "cell", i, "(", cell_name, ") written to:", output_file, "\n")
   }

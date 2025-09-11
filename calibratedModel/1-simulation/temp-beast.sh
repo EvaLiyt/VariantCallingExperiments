@@ -4,7 +4,7 @@ echo "#!/bin/sh" > $1.sh
 echo "" >> $1.sh
 echo "#SBATCH -J $1		# The job name" >> $1.sh
 echo "#SBATCH -A uoa04397    # The account code" >> $1.sh
-echo "#SBATCH --time=5:00:00         # The walltime" >> $1.sh
+echo "#SBATCH --time=2:00:00         # The walltime" >> $1.sh
 echo "#SBATCH --mem=4G 	        # in total" >> $1.sh
 echo "#SBATCH --cpus-per-task=2       # OpenMP Threads" >> $1.sh
 echo "#SBATCH --ntasks=1              # not use MPI" >> $1.sh

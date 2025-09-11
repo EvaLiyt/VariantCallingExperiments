@@ -27,7 +27,7 @@ for subfolder in "${input_folder}"/*/; do
                 output_file="${output_folder}/${subfolder_name}/$filename"
                 
                 # Modify the VCF file
-                # 1. Delete lines starting with "##FILTER=<ID=No.variants<2"
+                # 1. Delete lines starting with "##FILTER=<ID=No.variants"
                 # 2. Replace "Number=G" with "Number=1"
                 sed -e '/^##FILTER=<ID=No\.variants/d' \
                     -e 's/Number=G/Number=1/' "$input_file" > "$output_file"

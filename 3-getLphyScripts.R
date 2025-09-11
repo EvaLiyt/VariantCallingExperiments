@@ -69,11 +69,11 @@ estimate_beta_params <- function(L, U, p_L=0.025, p_U=0.975) {
 generate_yule_tree_length <- function(root_age, n_tips, lambda, n_sim = 100) {
   set.seed(42)
   tree_lengths <- numeric(n_sim)
-
+  
   for (i in 1:n_sim) {
     # Simulate one Yule tree per iteration
     trees <- sim.bd.taxa.age(n = n_tips, numbsim = 1, lambda = lambda, mu = 1, age = root_age)
-
+    
     # Handle failure cases
     if (length(trees) == 0 || is.null(trees[[1]])) {
       warning(paste("Simulation", i, "failed. Skipping."))
@@ -82,10 +82,10 @@ generate_yule_tree_length <- function(root_age, n_tips, lambda, n_sim = 100) {
       tree_lengths[i] <- sum(trees[[1]]$edge.length)
     }
   }
-
+  
   # Remove failed simulations (if any)
   tree_lengths <- na.omit(tree_lengths)
-
+  
   return(mean(tree_lengths))
 }
 
@@ -134,7 +134,7 @@ sdlog_lambda_tumour <- tumour_lambda_params$sdlog
 ### Scale Branch Rates
 ## calculate tree length
 normalTreeLength <- generate_yule_tree_length((normalTreeHigh + normalTreeLow)/2, ntaxa, (lambda_high_normal+ lambda_low_normal)/2) -
-   generate_yule_tree_length((tumourTreeHigh + tumourTreeLow)/2, 20, (lambda_high_tumour + lambda_low_tumour)/2)
+  generate_yule_tree_length((tumourTreeHigh + tumourTreeLow)/2, 20, (lambda_high_tumour + lambda_low_tumour)/2)
 normalTreeLength_high <- generate_yule_tree_length(normalTreeHigh, ntaxa, lambda_low_normal) - generate_yule_tree_length(tumourTreeLow, 20, lambda_high_tumour)
 normalTreeLength_low <- generate_yule_tree_length(normalTreeLow, ntaxa, lambda_high_normal) - generate_yule_tree_length(tumourTreeHigh, 20, lambda_low_tumour)
 
@@ -167,12 +167,12 @@ tumourRate_low <- normalRate_low * scale_tumour
 normalRate_params <- get_lognormal_params(normalRate_low, normalRate_high)
 mean_normalRate <- normalRate_params$meanlog
 sdlog_normalRate <- normalRate_params$sdlog
-meanRate_normal <- exp(-(mean_normalRate + sdlog_normalRate / 2))
+meanRate_normal <- exp(mean_normalRate + sdlog_normalRate / 2)
 
 tumourRate_params <- get_lognormal_params(tumourRate_low, tumourRate_high)
 mean_tumourRate <- tumourRate_params$meanlog
 sdlog_tumourRate <- tumourRate_params$sdlog
-meanRate_tumour <- exp(-(mean_tumourRate + sdlog_tumourRate / 2))
+meanRate_tumour <- exp(mean_tumourRate + sdlog_tumourRate / 2)
 
 
 # ADO rate
@@ -231,7 +231,7 @@ mu_low <- expect_normal_mut* scale_tumour / tumourTreeLength_high_SM
 mu_params <- get_lognormal_params(mu_low, mu_high)
 mean_mu <- mu_params$meanlog
 sdlog_mu <- mu_params$sdlog
-meanRate_mu <- exp(-(mean_mu + sdlog_mu / 2))
+meanRate_mu <- exp(mean_mu + sdlog_mu / 2)
 
 # Create output folder if it doesn't exist
 if (!dir.exists("./simpleModel/1-simulation/lphy_scripts")) {
@@ -275,7 +275,7 @@ model{{
     r ~ ReadCountModel(D=A, epsilon=epsilon, alpha=alpha, coverage=cov, w1=w1, w2=w2);
 }}
 ')
-
+  
   file_name <- sprintf("simpleModel/1-simulation/lphy_scripts/sequenceGeneration_r%d.lphy", i)
   writeLines(script, file_name)
 }

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J runTopologyCheck
+#SBATCH -J SM_runTopologyCheck
 #SBATCH -A uoa04397
 #SBATCH --time=5:00:00
 #SBATCH --mem=8G

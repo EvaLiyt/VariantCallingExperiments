@@ -28,7 +28,7 @@ for dir in "${directories[@]}"; do
 #!/bin/bash
 #SBATCH -J SM_${base_name}
 #SBATCH -A uoa04397
-#SBATCH --time=5:00:00
+#SBATCH --time=2:00:00
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
 #SBATCH --hint=multithread

@@ -17,6 +17,6 @@ folder="/nesi/nobackup/uoa04397/eva/VariantCallingExperiments/realisticModel/3-x
 
 for filename in ${folder}/*trees; do
     echo "processing ${filename}"
-  ./treeannotator -topology CCD0 ${filename} "${filename}.txt"
+  ./treeannotator -topology CCD0 -height CA ${filename} "${filename}.txt"
   echo "done ${filename}"
 done

@@ -6,7 +6,7 @@ from collections import defaultdict
 # Directories
 vcf_directory = "../2-variantCalling/filtered"
 param_directory = "../1-simulation/pileup"
-output_directory = "./stats"
+output_directory = "./summary"
 root_dir = "../1-simulation/root"    
 nexus_dir = "../1-simulation/nexus" 
 output_csv = os.path.join(output_directory, "var_counts.csv")
@@ -214,21 +214,6 @@ with open(output_csv, 'w', newline='') as out_file:
             "avg_non_zero_normal": avg(stats["normal_non_zero"]),
             "avg_total_variants_tumour": avg(stats["tumour_total_variants"]),
             "avg_zero_zero_tumour": avg(stats["tumour_zero_zero"]),
-            "avg_non_zero_tumour": avg(stats["tumour_non_zero"]),
-            "avg_mutation_normal": avg(list(mutation_normal)),
-            "avg_mutation_tumour": avg(list(mutation_tumour))
-        })
+            "avg_non_zero_tumour": avg(stats["tumour_non_zero"])        })
         
-output_file = os.path.join(output_dir, "sequence_comparison_results.csv")
-with open(output_file, 'w', newline='') as csvfile:
-    fieldnames = ['r', 'clade_mean', 'clade_std', 'non_clade_mean', 'non_clade_std', 'avg_diff_sites']
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-    writer.writeheader()
 
-    for r in r_values:
-        result = process_r_value(r, root_dir=root_dir, nexus_dir=nexus_dir)
-        if result:
-            print(f"Processed r={r}: {result}")
-            writer.writerow(result)
-
-print("Done.")

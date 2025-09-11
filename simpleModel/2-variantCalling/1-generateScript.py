@@ -53,7 +53,7 @@ for r in range(num_repeats):
     #!/bin/bash
     #SBATCH -J SM_{repeat_name}
     #SBATCH -A uoa04397
-    #SBATCH --time=72:00:00
+    #SBATCH --time=2:00:00
     #SBATCH --mem=8G
     #SBATCH --cpus-per-task=4
     """)

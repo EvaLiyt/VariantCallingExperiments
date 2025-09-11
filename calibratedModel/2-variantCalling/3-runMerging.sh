@@ -8,7 +8,6 @@
 #SBATCH --hint=multithread      # A multithreaded job
 #SBATCH --mail-user=yil218@aucklanduni.ac.nz
 #SBATCH --mail-type=ALL 
-
 chmod +x *sh
 ./filter.sh
 ./modifyVCFs.sh

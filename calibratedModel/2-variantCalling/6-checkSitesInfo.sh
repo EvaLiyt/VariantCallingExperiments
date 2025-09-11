@@ -18,5 +18,7 @@ data {
 }
 EOF
 
-  ${slphy} script_r${r}.lphy
+  # Run and append filtered output to summary file
+  echo "=== r${r} ===" >> "$summary_file"
+  ${slphy} script_r${r}.lphy | grep -E "variable sites|informative sites" >> "$summary_file"
 done

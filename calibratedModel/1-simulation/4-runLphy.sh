@@ -23,8 +23,8 @@ for lphy_file in ${lphy_dir}/*.lphy; do
 #!/bin/bash
 #SBATCH -J CM_r${id}
 #SBATCH -A uoa04397
-#SBATCH --time=5:00:00
-#SBATCH --mem=24G
+#SBATCH --time=2:00:00
+#SBATCH --mem=8G
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-user=yil218@aucklanduni.ac.nz
 #SBATCH --mail-type=ALL
@@ -33,7 +33,7 @@ for lphy_file in ${lphy_dir}/*.lphy; do
 
 module load Java/17
 
-slphy="/home/yil218/lphy-studio-1.6.1/bin/slphy"
+slphy="/home/yil218/lphy-studio-1.7.0/bin/slphy"
 lphy_file="${lphy_file}"
 lphy_dir="./lphy_scripts"
 result="./simulationData"
