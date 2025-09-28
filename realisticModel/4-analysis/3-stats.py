@@ -161,9 +161,13 @@ def calc_metrics(stats):
 
     tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+    fnr = fn/ (tp + fn) if (tp + fn) > 0 else 0.0
+    tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    accuracy = (tp+tn)/(tp+tn+fp+fn) if (tp+tn+fp+fn)>0 else 0.0
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    f1 = 2*precision*tpr/(tpr+precision) if (tpr+precision) > 0 else 0.0
 
-    return tpr, fpr, precision
+    return tpr, fpr, fnr, tnr, accuracy, precision, f1
 
 
 def sorted_cell_names(cell_names):
@@ -219,13 +223,13 @@ def process_single_r(r):
         # Write output file
         output_file = os.path.join(output_folder, f"stats_{r_folder}_minD{minD_value}_minVar{minVar_value}.csv")
         with open(output_file, 'w', newline='') as csvfile:
-            fieldnames = ['Cell', 'TP', 'FP', 'TN', 'FN', 'TPR', 'FPR', 'Precision']
+            fieldnames = ['Cell', 'TP', 'FP', 'TN', 'FN', 'TPR', 'FPR', 'FNR', 'Accuracy','TNR', 'FNR', 'Precision', 'F1Score']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
 
             for cell in sorted_cell_names(cell_stats.keys()):
                 stats = cell_stats[cell]
-                tpr, fpr, precision = calc_metrics(stats)
+                tpr, fpr, fnr, tnr, accuracy, precision, f1 = calc_metrics(stats)
 
                 writer.writerow({
                     'Cell': cell,
@@ -235,7 +239,11 @@ def process_single_r(r):
                     'FN': stats['false_negative'],
                     'TPR': tpr,
                     'FPR': fpr,
+                    'TNR':tnr,
+                    'FNR':fnr,
+                    'Accuracy':accuracy,
                     'Precision': precision,
+                    'F1Score':f1
                 })
 
         print(f"Wrote {output_file}")
