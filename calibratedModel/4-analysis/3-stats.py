@@ -22,6 +22,9 @@ genotype_map = {
     'b': 'K', 'e': 'K'
 }
 
+# Include unmapped (non-degenerate) genotypes as themselves
+all_genotypes = sorted(set(genotype_map.values()) | {'0', '5', 'a', 'f'})
+
 
 def map_genotype(genotype):
     return genotype_map.get(genotype, genotype)
@@ -36,7 +39,6 @@ def read_genotype_from_files(r_folder):
     if not os.path.isdir(subfolder_path):
         return genotypes
 
-    # Process all files in the folder
     for filename in os.listdir(subfolder_path):
         file_path = os.path.join(subfolder_path, filename)
         if not os.path.isfile(file_path):
@@ -44,14 +46,13 @@ def read_genotype_from_files(r_folder):
 
         try:
             with open(file_path, 'r') as file:
-                # Skip header and process all lines at once
                 lines = file.readlines()
                 for line in lines:
                     if line.startswith("site"):
                         continue
 
                     cols = line.strip().split('\t')
-                    if len(cols) >= 4:  # Safety check
+                    if len(cols) >= 4:
                         site = cols[0]
                         ref_genotype = map_genotype(cols[1])
                         true_genotype = map_genotype(cols[2])
@@ -64,7 +65,6 @@ def read_genotype_from_files(r_folder):
 
 
 def read_site_file(site_file_path):
-    """Optimized site file reading"""
     positive_sites = set()
     negative_sites = set()
     current_section = None
@@ -88,7 +88,7 @@ def read_site_file(site_file_path):
 
 
 def compare_genotypes_with_sites(r_folder, genotypes):
-    """Optimized genotype comparison with vectorized operations"""
+    """Optimized genotype comparison with per-genotype tracking"""
     print(f"Comparing genotypes with sites for {r_folder}...")
     results = {}
 
@@ -96,13 +96,11 @@ def compare_genotypes_with_sites(r_folder, genotypes):
     if not os.path.isdir(subfolder_path):
         return results
 
-    # Pre-build lookup table for genotypes by cell name
     genotype_by_cell = defaultdict(dict)
     for (filename, site), (ref_gen, true_gen, final_gen) in genotypes.items():
         cell_name = filename.split('_r')[0]
         genotype_by_cell[cell_name][site] = (ref_gen, true_gen, final_gen)
 
-    # Pre-generate all sites as strings for faster lookup
     all_sites = {str(i) for i in range(1, ref_length + 1)}
 
     for filename in os.listdir(subfolder_path):
@@ -113,65 +111,87 @@ def compare_genotypes_with_sites(r_folder, genotypes):
         positive_sites, negative_sites = read_site_file(site_file_path)
         cell_name = filename.split('_r')[0]
 
-        # Initialize stats
         stats = {'true_positive': 0, 'false_positive': 0, 'true_negative': 0, 'false_negative': 0}
+        # NEW: per-genotype confusion stats
+        genotype_stats = {g: {'TP': 0, 'FP': 0, 'TN': 0, 'FN': 0} for g in all_genotypes}
 
-        # Get genotypes for this cell
         cell_genotypes = genotype_by_cell.get(cell_name, {})
 
-        # Vectorized processing of all sites
         for site in all_sites:
             if site in cell_genotypes:
                 ref_genotype, true_genotype, final_genotype = cell_genotypes[site]
                 is_match = true_genotype == final_genotype
                 is_var = ref_genotype != true_genotype
 
+                # Overall metrics
                 if site in positive_sites:
-                    if is_var:
-                        if is_match:
-                            stats['true_positive'] += 1
+                    if is_var and is_match:
+                        stats['true_positive'] += 1
                     else:
-                        # not match or not var
                         stats['false_positive'] += 1
                 elif site in negative_sites:
                     if is_var:
                         stats['false_negative'] += 1
-                    else :
+                    else:
                         stats['true_negative'] += 1
                 else:
-                    if is_var : # site is considered var, or site is not called
+                    if is_var:
                         stats['false_negative'] += 1
                     else:
                         stats['true_negative'] += 1
-            else:
-                # No genotype data for this site
-                if site in positive_sites:
-                    stats['false_positive'] += 1
-                else:
-                    stats['true_negative'] += 1
 
-        results[cell_name] = stats
+                # --- Per-genotype metrics ---
+                if true_genotype in all_genotypes:
+                    if final_genotype == true_genotype:
+                        genotype_stats[true_genotype]['TP'] += 1
+                    else:
+                        genotype_stats[true_genotype]['FN'] += 1
+
+                if final_genotype in all_genotypes and final_genotype != true_genotype:
+                    genotype_stats[final_genotype]['FP'] += 1
+
+                for g in all_genotypes:
+                    if g not in (true_genotype, final_genotype):
+                        genotype_stats[g]['TN'] += 1
+            else:
+                # No genotype data
+                stats['true_negative'] += 1
+                for g in all_genotypes:
+                    genotype_stats[g]['TN'] += 1
+
+        results[cell_name] = {'overall': stats, 'per_genotype': genotype_stats}
 
     return results
 
 
 def calc_metrics(stats):
-    """Calculate all metrics at once"""
     tp, fp, tn, fn = stats['true_positive'], stats['false_positive'], stats['true_negative'], stats['false_negative']
-
     tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
-    fnr = fn/ (tp + fn) if (tp + fn) > 0 else 0.0
+    fnr = fn / (tp + fn) if (tp + fn) > 0 else 0.0
     tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0
-    accuracy = (tp+tn)/(tp+tn+fp+fn) if (tp+tn+fp+fn)>0 else 0.0
+    accuracy = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0.0
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    f1 = 2*precision*tpr/(tpr+precision) if (tpr+precision) > 0 else 0.0
-
+    f1 = 2 * precision * tpr / (tpr + precision) if (tpr + precision) > 0 else 0.0
     return tpr, fpr, fnr, tnr, accuracy, precision, f1
 
 
+def calc_per_genotype_metrics(genotype_stats):
+    """Compute TPR, Precision, F1 per genotype"""
+    results = {}
+    for g, s in genotype_stats.items():
+        tp, fp, tn, fn = s['TP'], s['FP'], s['TN'], s['FN']
+        tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+        fnr = fn / (tp + fn) if (tp + fn) > 0 else 0.0
+        tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        f1 = 2 * precision * tpr / (precision + tpr) if (precision + tpr) > 0 else 0.0
+        results[g] = {'TP': tp, 'FP': fp, 'TN': tn, 'FN': fn, 'TPR': tpr, 'FPR':fpr, 'FNR':fnr, 'TNR':tnr,'Precision': precision, 'F1': f1}
+    return results
+
+
 def sorted_cell_names(cell_names):
-    """Optimized sorting with compiled regex"""
     number_pattern = re.compile(r'\d+')
 
     def extract_number(name):
@@ -185,14 +205,11 @@ def sorted_cell_names(cell_names):
 
 
 def process_single_r(r):
-    """Process a single r value - for potential multiprocessing"""
     r_folder = f"r{r}"
     site_path = os.path.join(site_folder, r_folder)
-
     if not os.path.exists(site_path):
         return None
 
-    # Extract minD and minVar values from filenames
     minD_value = minVar_value = None
     try:
         for filename in os.listdir(site_path):
@@ -220,18 +237,22 @@ def process_single_r(r):
             print(f"No cell stats generated for {r_folder}")
             return None
 
-        # Write output file
         output_file = os.path.join(output_folder, f"stats_{r_folder}_minD{minD_value}_minVar{minVar_value}.csv")
         with open(output_file, 'w', newline='') as csvfile:
-            fieldnames = ['Cell', 'TP', 'FP', 'TN', 'FN', 'TPR', 'FPR', 'FNR', 'Accuracy','TNR', 'FNR', 'Precision', 'F1Score']
+            # --- Define all field names ---
+            base_fields = ['Cell', 'TP', 'FP', 'TN', 'FN', 'TPR', 'FPR', 'FNR', 'TNR', 'Accuracy', 'Precision', 'F1Score']
+            genotype_fields = []
+            for g in all_genotypes:
+                genotype_fields += [f"{g}_TP", f"{g}_FP", f"{g}_TN", f"{g}_FN", f"{g}_TPR", f"{g}_FPR",f"{g}_TNR",f"{g}_FNR", f"{g}_Precision", f"{g}_F1"]
+            fieldnames = base_fields + genotype_fields
+
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
 
             for cell in sorted_cell_names(cell_stats.keys()):
-                stats = cell_stats[cell]
+                stats = cell_stats[cell]['overall']
                 tpr, fpr, fnr, tnr, accuracy, precision, f1 = calc_metrics(stats)
-
-                writer.writerow({
+                row = {
                     'Cell': cell,
                     'TP': stats['true_positive'],
                     'FP': stats['false_positive'],
@@ -239,12 +260,27 @@ def process_single_r(r):
                     'FN': stats['false_negative'],
                     'TPR': tpr,
                     'FPR': fpr,
-                    'TNR':tnr,
-                    'FNR':fnr,
-                    'Accuracy':accuracy,
+                    'FNR': fnr,
+                    'TNR': tnr,
+                    'Accuracy': accuracy,
                     'Precision': precision,
-                    'F1Score':f1
-                })
+                    'F1Score': f1
+                }
+
+                per_geno = calc_per_genotype_metrics(cell_stats[cell]['per_genotype'])
+                for g, m in per_geno.items():
+                    row[f"{g}_TP"] = m['TP']
+                    row[f"{g}_FP"] = m['FP']
+                    row[f"{g}_TN"] = m['TN']
+                    row[f"{g}_FN"] = m['FN']
+                    row[f"{g}_TPR"] = m['TPR']
+                    row[f"{g}_FPR"] = m['FPR']
+                    row[f"{g}_TNR"] = m['TNR']
+                    row[f"{g}_FNR"] = m['FNR']
+                    row[f"{g}_Precision"] = m['Precision']
+                    row[f"{g}_F1"] = m['F1']
+
+                writer.writerow(row)
 
         print(f"Wrote {output_file}")
         return output_file
@@ -255,14 +291,12 @@ def process_single_r(r):
 
 
 def main():
-    # Ensure output folder exists and clear it
     os.makedirs(output_folder, exist_ok=True)
     for filename in os.listdir(output_folder):
         file_path = os.path.join(output_folder, filename)
         if os.path.isfile(file_path):
             os.remove(file_path)
 
-    # Find all available r values
     available_r_values = []
     for r in range(0, 100):
         r_folder = f"r{r}"
@@ -272,7 +306,6 @@ def main():
 
     print(f"Found {len(available_r_values)} r values to process")
 
-    # Option 1: Sequential processing (safer, easier to debug)
     successful_files = []
     for r in available_r_values:
         result = process_single_r(r)
