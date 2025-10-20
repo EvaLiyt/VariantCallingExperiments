@@ -20,6 +20,6 @@ python changeVCFnames.py
 
 ./mergeVCF.sh
 python changePL.py
-python getHomoRef.py
+python getRoorRef.py
 
 

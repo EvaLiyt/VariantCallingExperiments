@@ -27,6 +27,22 @@ for folder in [output_folder, site_folder]:
                 print(f"Error removing {file_path}: {e}")
 
 
+genotype_map = {
+    '1': 'M', '4': 'M',
+    '2': 'R', '8': 'R',
+    '3': 'W', 'c': 'W',
+    '6': 'S', '9': 'S',
+    '7': 'Y', 'd': 'Y',
+    'b': 'K', 'e': 'K'
+}
+
+def map_genotype(genotype):
+    if genotype is None:
+        return genotype
+    gt = str(genotype)
+    return genotype_map.get(gt, gt)
+
+
 def read_sequences_from_file(file_path):
     """Reads sequences from a file and returns them as a list."""
     with open(file_path, 'r') as file:
@@ -39,7 +55,9 @@ def compare_sequences(seq1, seq2, seq3):
     """Compare true and final sequences and find differing sites."""
     differing_sites = []
     for i in range(min(len(seq1), len(seq2), len(seq3))):  # Compare only up to the shortest sequence
-        if seq1[i] != seq2[i] or seq2[i] != seq3[i]:
+        site2 = map_genotype(seq2[i])
+        site3 = map_genotype(seq3[i])
+        if seq1[i] != seq2[i] or site2 != site3:
             differing_sites.append((i + 1, seq1[i], seq2[i], seq3[i]))  # Store 1-based index and the differing bases
     return differing_sites
 
@@ -108,9 +126,9 @@ def process_r_folder(r_folder_name):
         print(f"VCF folder for '{r_folder_name}' not found. Skipping.")
         return
 
-    for vcf_file in os.listdir(vcf_r_folder):
+    vcf_files = [f for f in os.listdir(vcf_r_folder) if f.endswith(".vcf")]
+    for vcf_file in vcf_files:
         vcf_path = os.path.join(vcf_r_folder, vcf_file)
-
         pos_list_positive = []
         pos_list_negative = []
         with open(vcf_path, 'r') as vcf:

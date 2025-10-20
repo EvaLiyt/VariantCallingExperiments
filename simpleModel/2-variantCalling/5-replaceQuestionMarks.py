@@ -11,7 +11,7 @@ if os.path.exists(output_folder):
 os.makedirs(output_folder)
 print(f"Created the output folder: {output_folder}")
 
-ref_files = [f for f in os.listdir(input_folder) if f.startswith("homo_ref") and f.endswith(".fasta")]
+ref_files = [f for f in os.listdir(input_folder) if f.startswith("root_ref") and f.endswith(".fasta")]
 
 for ref_fasta in ref_files:
     suffix = '_'.join(ref_fasta.split('_')[2:]).split('.')[0]

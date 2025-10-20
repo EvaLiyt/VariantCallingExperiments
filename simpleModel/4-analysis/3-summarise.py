@@ -4,7 +4,7 @@ import re
 import statistics
 
 # ---- Config ----
-GENOTYPES = ["0", "5", "K", "M", "R", "S", "W", "Y", "a", "f"]
+GENOTYPES = ["homo", "hetero"]
 STATS_FOLDER = "./stats"
 OUTPUT_FOLDER = "./summary"
 OUTPUT_FILE = os.path.join(OUTPUT_FOLDER, "summary.csv")
@@ -15,58 +15,22 @@ def parse_filename(filename):
     pattern = r"stats_r(\d+)_minD(\d+)_minVar(\d+)\.csv"
     match = re.match(pattern, filename)
     if match:
-        r = int(match.group(1))
-        minD = int(match.group(2))
-        minVar = int(match.group(3))
-        return r, minD, minVar
-    else:
-        return None, None, None
-
-
-def read_genotype_rates(filepath):
-    """
-    Read per-genotype rate columns (*_TPR, *_FPR, *_TNR, *_FNR)
-    and compute average across all cells.
-    """
-    genotype_data = {g: {"TPR": [], "FPR": [], "TNR": [], "FNR": []} for g in GENOTYPES}
-
-    try:
-        with open(filepath, "r") as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                for g in GENOTYPES:
-                    for metric in ["TPR", "FPR", "TNR", "FNR"]:
-                        col = f"{g}_{metric}"
-                        if col in row and row[col] not in [None, ""]:
-                            try:
-                                genotype_data[g][metric].append(float(row[col]))
-                            except ValueError:
-                                continue
-    except Exception as e:
-        print(f"Error reading {filepath}: {e}")
-        return None
-
-    # Compute means
-    genotype_means = {}
-    for g in GENOTYPES:
-        for metric in ["TPR", "FPR", "TNR", "FNR"]:
-            values = genotype_data[g][metric]
-            mean_val = statistics.mean(values) if values else 0.0
-            genotype_means[f"{g}_{metric}"] = mean_val
-
-    return genotype_means
+        return int(match.group(1)), int(match.group(2)), int(match.group(3))
+    return None, None, None
 
 
 def calculate_means(values):
     """Mean with empty list handling"""
-    if not values:
-        return 0.0
-    return statistics.mean(values)
+    return statistics.mean(values) if values else 0.0
 
 
 def read_overall_metrics(filepath):
-    """Read overall TPR/FPR/FNR/TNR/Accuracy/Precision/F1Score"""
-    metrics = {k: [] for k in ["TPR", "FPR", "FNR", "TNR", "Accuracy", "Precision", "F1Score"]}
+    """Read overall metrics (Mean_TPR, Mean_FPR, ..., Mean_F1Score)"""
+    metrics = {k: [] for k in [
+        "TPR", "FPR", "FNR", "TNR",
+        "TP", "FP", "TN", "FN",
+        "Accuracy", "Precision", "F1Score"
+    ]}
 
     try:
         with open(filepath, "r") as csvfile:
@@ -79,10 +43,34 @@ def read_overall_metrics(filepath):
                         continue
     except Exception as e:
         print(f"Error reading {filepath}: {e}")
-        return {k: [] for k in metrics}
+        return {f"Mean_{k}": 0.0 for k in metrics}
 
-    mean_metrics = {f"Mean_{k}": calculate_means(v) for k, v in metrics.items()}
-    return mean_metrics
+    return {f"Mean_{k}": calculate_means(v) for k, v in metrics.items()}
+
+
+def read_all_columns(filepath):
+    """
+    Read *all* numeric columns from the stats file (e.g., 0_TP, 0_Precision, f_F1, etc.)
+    and compute their means automatically.
+    """
+    means = {}
+    with open(filepath, "r") as csvfile:
+        reader = csv.DictReader(csvfile)
+        headers = reader.fieldnames
+        numeric_data = {h: [] for h in headers if h != "Cell"}
+
+        for row in reader:
+            for h in numeric_data:
+                val = row[h]
+                try:
+                    numeric_data[h].append(float(val))
+                except (ValueError, TypeError):
+                    continue
+
+    for h, vals in numeric_data.items():
+        means[h] = calculate_means(vals) if vals else 0.0
+
+    return means
 
 
 def main():
@@ -93,6 +81,7 @@ def main():
         return
 
     summary_rows = []
+    all_headers = set()
 
     for filename in os.listdir(STATS_FOLDER):
         if not filename.startswith("stats_r") or not filename.endswith(".csv"):
@@ -106,46 +95,45 @@ def main():
         filepath = os.path.join(STATS_FOLDER, filename)
         print(f"Processing {filename}...")
 
-        # Read overall metrics
+        # Compute overall mean metrics
         overall_means = read_overall_metrics(filepath)
 
-        # Read genotype-specific averages
-        genotype_means = read_genotype_rates(filepath)
-        if not genotype_means:
-            print(f"No genotype metrics found in {filename}")
-            continue
+        # Compute per-column means for everything in the file
+        all_means = read_all_columns(filepath)
 
+        # Merge both
         row = {
             "r_value": r,
             "minD_value": minD,
             "minVar_value": minVar,
         }
         row.update(overall_means)
-        row.update(genotype_means)
+        row.update(all_means)
 
         summary_rows.append(row)
+        all_headers.update(row.keys())
 
-    # Sort results by r
-    summary_rows.sort(key=lambda x: x["r_value"])
-
-    # Prepare header
-    if summary_rows:
-        fieldnames = ["r_value", "minD_value", "minVar_value"]
-        fieldnames += [f"Mean_{k}" for k in ["TPR", "FPR", "FNR", "TNR", "Accuracy", "Precision", "F1Score"]]
-        for g in GENOTYPES:
-            fieldnames += [f"{g}_{m}" for m in ["TPR", "FPR", "TNR", "FNR"]]
-
-        # Write output CSV
-        with open(OUTPUT_FILE, "w", newline="") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in summary_rows:
-                writer.writerow(row)
-
-        print(f"\n✅ Summary written to {OUTPUT_FILE}")
-        print(f"Processed {len(summary_rows)} stats files successfully.")
-    else:
+    # --- Write summary CSV ---
+    if not summary_rows:
         print("No valid stats files found.")
+        return
+
+    # Define column order
+    fieldnames = ["r_value", "minD_value", "minVar_value"]
+    mean_cols = [f"Mean_{k}" for k in [
+        "TPR", "FPR", "FNR", "TNR", "TP", "FP", "TN", "FN", "Accuracy", "Precision", "F1Score"
+    ]]
+    other_cols = sorted(set(all_headers) - set(fieldnames) - set(mean_cols))
+    fieldnames += mean_cols + other_cols
+
+    with open(OUTPUT_FILE, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in sorted(summary_rows, key=lambda x: x["r_value"]):
+            writer.writerow(row)
+
+    print(f"\n Summary written to {OUTPUT_FILE}")
+    print(f"Processed {len(summary_rows)} stats files successfully.")
 
 
 if __name__ == "__main__":

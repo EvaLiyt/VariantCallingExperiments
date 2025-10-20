@@ -44,6 +44,42 @@ ref_sequence_folder = "../1-simulation/root"
 vcf_folder = "./merge"
 output_folder = "./merge"
 
+
+def convert_unphased(sequence):
+    """
+    Convert a sequence according to the specified unphased rules.
+    
+    Rules:
+    - 0, 5, a, f -> keep same
+    - 1, 4 -> M
+    - 2, 8 -> R
+    - 3, c -> W
+    - 6, 9 -> S
+    - 7, d -> Y
+    - b, e -> K
+    - otherwise -> raise ValueError
+    """
+    # Define the mapping
+    mapping = {
+        '0': '0', '5': '5', 'a': 'a', 'f': 'f',
+        '1': 'M', '4': 'M',
+        '2': 'R', '8': 'R',
+        '3': 'W', 'c': 'W',
+        '6': 'S', '9': 'S',
+        '7': 'Y', 'd': 'Y',
+        'b': 'K', 'e': 'K'
+    }
+    
+    converted_seq = []
+    for char in sequence.lower():  # convert to lowercase to be safe
+        if char in mapping:
+            converted_seq.append(mapping[char])
+        else:
+            raise ValueError(f"Invalid character '{char}' in sequence")
+    
+    return ''.join(converted_seq)
+
+
 for file_name in os.listdir(vcf_folder):
     if file_name.startswith("variants_") and file_name.endswith(".vcf"):
         suffix = file_name.replace("variants_", "").replace(".vcf", "")
@@ -58,7 +94,8 @@ for file_name in os.listdir(vcf_folder):
         except Exception as e:
             print(f"Error parsing {nexus_file}: {e}")
             continue
-        
+
+        ref_sequence = convert_unphased(reference_sequence)
         print(f"Reference sequence loaded for {reference_taxon} with length: {len(reference_sequence)}")
         
         vcf_path = os.path.join(vcf_folder, file_name)
@@ -72,11 +109,11 @@ for file_name in os.listdir(vcf_folder):
                 print(f"Warning: No #CHROM line found in {vcf_path}")
                 continue
         
-        output_fasta_path = os.path.join(output_folder, f"homo_ref_{suffix}.fasta")
+        output_fasta_path = os.path.join(output_folder, f"root_ref_{suffix}.fasta")
         with open(output_fasta_path, "w") as output_fasta:
             for sample_name in sample_names:
                 output_fasta.write(f">{sample_name}\n")
-                output_fasta.write(f"{reference_sequence}\n")
+                output_fasta.write(f"{ref_sequence}\n")
         
         print(f"FASTA written: {output_fasta_path}")
 

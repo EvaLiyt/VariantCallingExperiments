@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J CM_vcf2fasta
+#SBATCH -J SM_vcf2fasta
 #SBATCH -A uoa04397            # The account code
 #SBATCH --time=5:00:00        # Adjust walltime as needed
 #SBATCH --mem=8G              # Adjust memory as needed
@@ -11,9 +11,9 @@
 file_folder="./merge"
 
 # Loop through each reference fasta file (new_ref_rX.fasta)
-for ref_seq in ${file_folder}/homo_ref_r*.fasta; do
+for ref_seq in ${file_folder}/root_ref_r*.fasta; do
     # Extract the rX part from the file name
-    suffix=$(basename "$ref_seq" .fasta | sed 's/homo_ref_//')
+    suffix=$(basename "$ref_seq" .fasta | sed 's/root_ref_//')
 
     # Construct the corresponding VCF file path (e.g., variants_rX.vcf)
     vcf_file="${file_folder}/variants_${suffix}.vcf"
