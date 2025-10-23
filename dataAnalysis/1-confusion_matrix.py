@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib import pyplot as plt
 from matplotlib.colors import to_rgba
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 import itertools
 
 # ---- Output directory ----
@@ -118,6 +120,20 @@ def scatter_cm(input_file, model_label="Model", count_type="number"):
             cm = create_cm_matrix(row['TP'], row['FP'], row['TN'], row['FN'])
             plot_cm(ax_inset, cm, n=int(row['n']))
 
+        # Positive values (orange–purple)
+        norm_pos = Normalize(vmin=0, vmax=1)
+        sm_pos = ScalarMappable(norm=norm_pos, cmap=plt.cm.PuRd)
+        cbar_pos = fig.colorbar(sm_pos, ax=ax, fraction=0.025, pad=0.02)
+        cbar_pos.set_label('Positive scale (TP/FN)', fontsize=8)
+        cbar_pos.ax.tick_params(labelsize=6)
+
+        # Negative values (blue–yellow)
+        norm_neg = Normalize(vmin=0, vmax=1)
+        sm_neg = ScalarMappable(norm=norm_neg, cmap=plt.cm.YlGnBu)
+        cbar_neg = fig.colorbar(sm_neg, ax=ax, fraction=0.025, pad=0.08)
+        cbar_neg.set_label('Negative scale (FP/TN)', fontsize=8)
+        cbar_neg.ax.tick_params(labelsize=6)
+        
         plt.savefig(os.path.join(output_dir, f"cm_{count_type}_{model_label.lower().replace(' ','_')}_{g}.png"), dpi=300)
         plt.close()
         print(f"Saved CM scatter plot for genotype {g}")
@@ -148,6 +164,15 @@ def scatter_cm(input_file, model_label="Model", count_type="number"):
                 ])
                 plot_f1_from_csv(ax_inset, row['Mean_F1'], n=int(row['n']))
 
+            # ---- Add F1 colorbar ----
+          
+            norm_f1 = Normalize(vmin=0, vmax=1)
+            sm_f1 = ScalarMappable(norm=norm_f1, cmap=plt.cm.viridis)
+            cbar_f1 = fig.colorbar(sm_f1, ax=ax, fraction=0.025, pad=0.02)
+            cbar_f1.set_label('Mean F1 Score', fontsize=8)
+            cbar_f1.ax.tick_params(labelsize=6)
+
+            
             plt.savefig(os.path.join(output_dir, f"f1_{count_type}_{model_label.lower().replace(' ','_')}_{g}.png"), dpi=300)
             plt.close()
             print(f"Saved F1 scatter plot for genotype {g}")
