@@ -75,13 +75,20 @@ def scatter_cm(input_file, model_label="Model", count_type="number"):
 
     # ---- Generate custom minD/minVar combinations ----
     all_combinations = []
-    for minD in range(1,9):           # minD 1-8
-        for minVar in range(1,8):     # minVar 1-7
+    for minD in range(1,9):
+        for minVar in range(1,8):
             if minD == 1 and minVar == 1:
                 all_combinations.append((minD, minVar))
             elif minD > 1 and minVar < minD:
                 all_combinations.append((minD, minVar))
     all_combinations = pd.DataFrame(all_combinations, columns=['minD_value','minVar_value'])
+
+    # ---- define colorbars' ScalarMappable for positive / negative ----
+    norm_pos = Normalize(vmin=0, vmax=1)
+    sm_pos = ScalarMappable(norm=norm_pos, cmap=plt.cm.PuRd)
+
+    norm_neg = Normalize(vmin=0, vmax=1)
+    sm_neg = ScalarMappable(norm=norm_neg, cmap=plt.cm.YlGnBu)
 
     for g in genotypes:
         if count_type == "number":
@@ -106,7 +113,7 @@ def scatter_cm(input_file, model_label="Model", count_type="number"):
         ax.set_ylim(0, 9)
         ax.set_xlabel("minD value")
         ax.set_ylabel("minVar value")
-        ax.set_title(f"{model_label} – Genotype {g} Confusion Matrices ({count_type})")
+        ax.set_title(f"{model_label} {g} Confusion Matrices ({count_type})")
 
         width = 0.8
         height = 0.8
@@ -120,25 +127,25 @@ def scatter_cm(input_file, model_label="Model", count_type="number"):
             cm = create_cm_matrix(row['TP'], row['FP'], row['TN'], row['FN'])
             plot_cm(ax_inset, cm, n=int(row['n']))
 
-        # Positive values (orange–purple)
-        norm_pos = Normalize(vmin=0, vmax=1)
-        sm_pos = ScalarMappable(norm=norm_pos, cmap=plt.cm.PuRd)
-        cbar_pos = fig.colorbar(sm_pos, ax=ax, fraction=0.025, pad=0.02)
-        cbar_pos.set_label('Positive scale (TP/FN)', fontsize=8)
-        cbar_pos.ax.tick_params(labelsize=6)
+        # ---- Positive colorbar ----
+        cbar_pos = fig.colorbar(
+            sm_pos,
+            cax=fig.add_axes([0.92, 0.55, 0.02, 0.30])  # right upper
+        )
+        cbar_pos.set_label("Positive scale (TP/FN)", fontsize=6)
 
-        # Negative values (blue–yellow)
-        norm_neg = Normalize(vmin=0, vmax=1)
-        sm_neg = ScalarMappable(norm=norm_neg, cmap=plt.cm.YlGnBu)
-        cbar_neg = fig.colorbar(sm_neg, ax=ax, fraction=0.025, pad=0.08)
-        cbar_neg.set_label('Negative scale (FP/TN)', fontsize=8)
-        cbar_neg.ax.tick_params(labelsize=6)
-        
-        plt.savefig(os.path.join(output_dir, f"cm_{count_type}_{model_label.lower().replace(' ','_')}_{g}.png"), dpi=300)
+        # ---- Negative colorbar ----
+        cbar_neg = fig.colorbar(
+            sm_neg,
+            cax=fig.add_axes([0.92, 0.15, 0.02, 0.30])  # right lower
+        )
+        cbar_neg.set_label("Negative scale (FP/TN)", fontsize=6)
+
+        plt.savefig(os.path.join(output_dir, f"{count_type}_ConfusionMatrix_{model_label.lower().replace(' ','_')}_{g}.png"), dpi=300)
         plt.close()
         print(f"Saved CM scatter plot for genotype {g}")
 
-        # ---- F1 plot for rate plots ----
+        # ---- F1 plot (only for rate + Mean genotype) ----
         if count_type == "rate" and g == "Mean" and "Mean_F1Score" in df.columns:
             grouped_f1 = df.groupby(['minD_value','minVar_value']).agg(
                 Mean_F1=pd.NamedAgg(column="Mean_F1Score", aggfunc='mean'),
@@ -153,7 +160,7 @@ def scatter_cm(input_file, model_label="Model", count_type="number"):
             ax.set_ylim(0, 9)
             ax.set_xlabel("minD value")
             ax.set_ylabel("minVar value")
-            ax.set_title(f"{model_label} – Genotype {g} F1 Scores ({count_type})")
+            ax.set_title(f"{model_label} {g} F1 Scores ({count_type})")
 
             for _, row in grouped_f1.iterrows():
                 ax_inset = ax.inset_axes([
@@ -164,22 +171,21 @@ def scatter_cm(input_file, model_label="Model", count_type="number"):
                 ])
                 plot_f1_from_csv(ax_inset, row['Mean_F1'], n=int(row['n']))
 
-            # ---- Add F1 colorbar ----
-          
+            # ---- F1 colorbar ----
             norm_f1 = Normalize(vmin=0, vmax=1)
             sm_f1 = ScalarMappable(norm=norm_f1, cmap=plt.cm.viridis)
-            cbar_f1 = fig.colorbar(sm_f1, ax=ax, fraction=0.025, pad=0.02)
+            cbar_f1 = fig.colorbar(sm_f1, cax=fig.add_axes([0.92, 0.25, 0.02, 0.50]))
             cbar_f1.set_label('Mean F1 Score', fontsize=8)
             cbar_f1.ax.tick_params(labelsize=6)
 
-            
-            plt.savefig(os.path.join(output_dir, f"f1_{count_type}_{model_label.lower().replace(' ','_')}_{g}.png"), dpi=300)
+            plt.savefig(os.path.join(output_dir, f"f1_{model_label.lower().replace(' ','_')}_{g}.png"), dpi=300)
             plt.close()
             print(f"Saved F1 scatter plot for genotype {g}")
 
+
 # ---- Run for multiple models ----
-for model, path in [("Complex Model", "../realisticModel/4-analysis/summary/summary.csv"),
-                    ("Calibrated Model", "../calibratedModel/4-analysis/summary/summary.csv"),
-                    ("Simple Model", "../simpleModel/4-analysis/summary/summary.csv")]:
+for model, path in [("Complex Model", "../realisticModel/4-analysis/summary/summary_method2.csv"),
+                    ("Calibrated Model", "../calibratedModel/4-analysis/summary/summary_method2.csv"),
+                    ("Simple Model", "../simpleModel/4-analysis/summary/summary_method2.csv")]:
     scatter_cm(path, model_label=model, count_type="number")
     scatter_cm(path, model_label=model, count_type="rate")
