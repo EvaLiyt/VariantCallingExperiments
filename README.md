@@ -31,7 +31,7 @@ This is a variant calling simulation study pipeline, including realistic sequenc
 	Move the sequence file to data folder in home directory.
 2. Obtain 1 million sites from p-arm with `1-obtainSequence.py`.
 3. Get homozygous reference sequence as well with `2-getHomoRootSeq.py`.
-3. Calculate parameters and get Lphy scripts with `3-getLphyScripts_simulation.R`.
+3. Calculate parameters and get Lphy scripts with `3-getLphyScripts.R`. (Or the 40 tumour cells simulation with `3-getMoreTaxaScripts.R`)
 
 ## Read Count Simulation
 ### Simple Model
@@ -61,6 +61,13 @@ Vcf2fasta is modified in the fork, will be merge to the main branch when it is s
 3. Run '3-getSH.sh' to get bash scripts then use '4-runBEAST.sh' to submit BEAST2 runs.
 4. Organise the result files with '5-organiseResults.sh'.
 
-### Data Analysis
+### MethodComparison
+The `methodComparison` folder contains methods comparison scripts for different ways to map variant called results.
+
+Method1 is `2-variantCalling`, which uses the strong evidence and map missing sites with root.
+Method2 is `2-variantCalling-method2`. In here we use the D1V1 files to map the sites in the merged VCF but with no genotype. Other missing sites mapped with root.
+Method3 is `2-variantCalling-method3`. In here we use the D1V1 files to map the sites in the merged VCF but with no genotype.
+Method4 is `2-variantCalling-method4`. Variant sites are filtered with minD2 minVar0 and pass back in `sccaller_labVersion_2ndRound.py` for variant calling.
+
 
 
