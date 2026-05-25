@@ -19,4 +19,4 @@ echo "module load beagle-lib/4.0.0-GCC-11.3.0" >> $1.sh
 echo "module load Java/17" >> $1.sh
 
 echo "# beast 2.7.x " >> $1.sh
-echo "srun /home/yil218/beast/bin/beast -beagle_SSE $1" >> $1.sh
+echo "srun /home/yil218/beast-2.7/bin/beast -beagle_SSE $1" >> $1.sh

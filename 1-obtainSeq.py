@@ -1,15 +1,16 @@
+
 import pysam
 
 ## file path
 input_file = ('/home/yil218/data/GCF_000001405.40_GRCh38.p14_genomic.fna')
-output_file = ("/home/yil218/data/chr1.fna")
+output_file = ("/home/yil218/data/10K.fna")
 
 ## read the sequence and the name
 with pysam.FastaFile(input_file) as fasta:
     name = fasta.references[0]
     complete_seq = fasta.fetch(name)
 
-seq_length = 50000
+seq_length = 10000
 
 ## choose the sequence region
 start_position = 44800001

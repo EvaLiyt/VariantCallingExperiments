@@ -7,12 +7,12 @@ output_folder = "./xmls"
 os.makedirs(output_folder, exist_ok=True)
 
 # Clear the output folder
-for filename in os.listdir(output_folder):
-    file_path = os.path.join(output_folder, filename)
-    if os.path.isfile(file_path):
-        os.remove(file_path)
-    elif os.path.isdir(file_path):
-        shutil.rmtree(file_path)
+# for filename in os.listdir(output_folder):
+#     file_path = os.path.join(output_folder, filename)
+#     if os.path.isfile(file_path):
+#         os.remove(file_path)
+#     elif os.path.isdir(file_path):
+#         shutil.rmtree(file_path)
 
 def modify_xml_files(input_folder, output_folder):
     # Process each XML file in the input folder
@@ -86,10 +86,10 @@ def modify_xml_files(input_folder, output_folder):
 
 # List of folders to process
 directories = [
-    "./ErrModelScripts",
-    "./wtErrModelScripts",
-    "./TrueErrModelScripts",
-    "./TruewtErrModelScripts"
+    #"./ErrModelScripts",
+    "./wtErrModelScripts"
+    #"./TrueErrModelScripts",
+    #"./TruewtErrModelScripts"
 ]
 
 # Modify all XML files

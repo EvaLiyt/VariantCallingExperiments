@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=4
 # Paths
 lphy_dir="./lphy_scripts"
-output_dir="./slurm_jobs"
+output_dir="./lphy_scripts_slurm_jobs"
 mkdir -p "${output_dir}"
 
 # Loop through each LPhy script and create a corresponding SLURM job script
@@ -20,13 +20,10 @@ for lphy_file in ${lphy_dir}/*.lphy; do
 #!/bin/bash
 #SBATCH -J SM_r${id}
 #SBATCH -A uoa04397
-#SBATCH --time=2:00:00
-#SBATCH --mem=8G
-#SBATCH --cpus-per-task=4
-#SBATCH --mail-user=yil218@aucklanduni.ac.nz
-#SBATCH --mail-type=ALL
-#SBATCH -o slurm_r${id}.out
-#SBATCH -e slurm_r${id}.err
+#SBATCH --time=1:00:00
+#SBATCH --mem=2G
+#SBATCH -o ${output_dir}/slurm_r${id}.out
+#SBATCH -e ${output_dir}/slurm_r${id}.err
 
 module load Java/17
 

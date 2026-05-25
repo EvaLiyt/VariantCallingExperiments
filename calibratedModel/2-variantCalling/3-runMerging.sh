@@ -2,14 +2,12 @@
 
 #SBATCH -J CM_runMerging
 #SBATCH -A uoa04397            # Account code
-#SBATCH --time=16:00:00         # Walltime
-#SBATCH --cpus-per-task=1       # OpenMP Threads
-#SBATCH --ntasks=1              # Not using MPI
-#SBATCH --hint=multithread      # A multithreaded job
+#SBATCH --time=72:00:00         # Walltime
 #SBATCH --mail-user=yil218@aucklanduni.ac.nz
 #SBATCH --mail-type=ALL 
 chmod +x *sh
-
+rm *out
+rm *log
 ./filter.sh
 ./modifyVCFs.sh
 ./getGZfiles.sh
@@ -20,6 +18,7 @@ python changeVCFnames.py
 
 ./mergeVCF.sh
 python changePL.py
-python getRoorRef.py
+python getRootRef.py
 
-
+./4-generateMappedFile.sh
+python 5-replaceQuestionMarks.py

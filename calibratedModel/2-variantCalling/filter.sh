@@ -1,42 +1,38 @@
 #!/bin/bash
 
-# Define the input folder containing subfolders and the output folder
+# Input and output directories
 script_folder="../1-simulation/pileup"
 output_folder="./filtered"
 
-# Remove the output folder if it exists, then recreate it
+# Recreate output directory
 rm -rf "$output_folder"
 mkdir -p "$output_folder"
 
-# Iterate over all subfolders in the input folder
+# Loop through all subdirectories
 for subfolder in "${script_folder}"/*/; do
-    # Ensure that it is indeed a directory
-    if [ -d "$subfolder" ]; then
-        # Get the name of the subfolder (e.g., r0, r1, ..., r99)
-        subfolder_name=$(basename "$subfolder")
-        echo "Processing subfolder: $subfolder_name"
-        
-        # Create a corresponding output subfolder for each input subfolder
-        mkdir -p "${output_folder}/${subfolder_name}"
+    [ -d "$subfolder" ] || continue
 
-        # Loop over each VCF file in the current subfolder
-        for file in "${subfolder}"/*.vcf; do
-            # Only proceed if the file exists (in case there are no VCF files)
-            if [ -f "$file" ]; then
-                # Strip 'sorted_' prefix and '.bam.vcf' suffix from the filename
-                name="${file##*/}"        # Get the filename without the path
+    subfolder_name=$(basename "$subfolder")
+    echo "Processing subfolder: $subfolder_name"
 
-                # Define the output file path
-                output="${output_folder}/${subfolder_name}/${name}"
+    # Create matching output subdirectory
+    out_subfolder="${output_folder}/${subfolder_name}"
+    mkdir -p "$out_subfolder"
 
-                # Print status message for debugging
-                echo "Creating filtered output file: $output"
+    # Process all VCF files
+    for file in "${subfolder}"/*.vcf; do
+        [ -f "$file" ] || continue
 
-                # Filter lines with '#' or with missing data '.' in the 7th column and write to the output file
-                awk -F'\t' '/^#/ || ($7 == "." && $5 !~ /[\+\-]/) { print }' "$file" > "$output"
+        name=$(basename "$file")
+        output="${out_subfolder}/${name}"
 
+        echo "Creating filtered output file: $output"
 
-            fi
-        done
-    fi
+        # Write header lines first, then filtered variant lines
+        awk '
+        /^#/ {print; next}
+        $7 == "." && length($5) == 1 {print}
+        ' "$file" > "$output"
+
+    done
 done

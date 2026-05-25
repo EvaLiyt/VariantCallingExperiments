@@ -7,7 +7,7 @@ library(parallel)
 # Paths
 # -----------------------------
 trueLogFolder <- "../1-simulation/simulationData"
-resultFolder  <- "./parsed_results"
+resultFolder  <- "./3-xml/parsed_results"
 paramsFolder  <- "../1-simulation/pileup"
 xmlsFolder    <- "../3-xml/xmls"
 

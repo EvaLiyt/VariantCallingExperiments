@@ -2,16 +2,9 @@
 #SBATCH -J SM_runLphybeast
 #SBATCH -A uoa04397
 #SBATCH --time=5:00:00
-#SBATCH --cpus-per-task=1
-#SBATCH --ntasks=1
-#SBATCH --hint=multithread
-#SBATCH --mail-user=yil218@aucklanduni.ac.nz
-#SBATCH --mail-type=ALL
+
 # Define lphybeast executable and version files
-lphybeastPath="/home/yil218/beast/bin"
-phyloncoVersionFile="/home/yil218/.beast/2.7/phylonco/version.xml"
-lphybeastVersionFile="/home/yil218/.beast/2.7/lphybeast/version.xml"
-flcVersionFile="/home/yil218/.beast/2.7/lphybeast.flc/version.xml"
+lphybeastPath="/home/yil218/beast-2.7/bin"
 
 # Define your target directories
 directories=( "./ErrModelScripts" "./wtErrModelScripts" "./TrueErrModelScripts" "./TruewtErrModelScripts" )
@@ -29,21 +22,15 @@ for dir in "${directories[@]}"; do
 #SBATCH -J SM_${base_name}
 #SBATCH -A uoa04397
 #SBATCH --time=2:00:00
-#SBATCH --cpus-per-task=1
-#SBATCH --ntasks=1
-#SBATCH --hint=multithread
-#SBATCH --mail-user=yil218@aucklanduni.ac.nz
-#SBATCH --mail-type=ALL
+#SBATCH --mem=2G
 #SBATCH -o ${dir}/${base_name}.out
 #SBATCH -e ${dir}/${base_name}.err
 
-module load beast
-
-${lphybeastPath}/lphybeast -vf "${phyloncoVersionFile},${lphybeastVersionFile},${flcVersionFile}" -l 60000000 "${lphy_file}" > "${lphy_file}.log" 2>&1
+${lphybeastPath}/lphybeast -l 40000000 "${lphy_file}"
 EOL
 
         echo "Created SLURM script: $slurm_script"
-        sbatch "$slurm_script"
+        #sbatch "$slurm_script"
     done
 done
 

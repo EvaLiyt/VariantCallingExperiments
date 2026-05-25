@@ -1,11 +1,7 @@
 #!/bin/bash
 #SBATCH -J SM_submitJobs
-#SBATCH -A uoa04397            # The account code
-#SBATCH --time=2:00:00        # Adjust walltime as needed
-#SBATCH --mem=2G              # Adjust memory as needed
-#SBATCH --cpus-per-task=4      # Number of CPUs per task
-#SBATCH --mail-user=yil218@aucklanduni.ac.nz
-#SBATCH --mail-type=ALL
+#SBATCH -A uoa04397 
+#SBATCH --time=2:00:00 
 
 for i in {0..99}; do
     repeat="r$i"

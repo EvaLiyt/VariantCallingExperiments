@@ -15,7 +15,7 @@ vcf_base = "../1-simulation/vcf"
 reference = "~/data/10K.fna"
 
 # Generate valid combinations
-valid_combinations = [(d, v) for d in range(2, 9) for v in range(1, d)]
+valid_combinations = [(d, v) for d in range(1, 6) for v in range(1, d+1)]
 
 # Make approximately uniform samples
 base_count = num_repeats // len(valid_combinations)
@@ -53,22 +53,14 @@ for r in range(num_repeats):
     #!/bin/bash
     #SBATCH -J CM_{repeat_name}
     #SBATCH -A uoa04397
-    #SBATCH --time=2:00:00
-    #SBATCH --mem=8G
-    #SBATCH --cpus-per-task=4
+    #SBATCH --time=6:00:00
+    #SBATCH --mem=4G
     """)
-
-    # Email notifications for r99 only
-    if repeat_name == "r99":
-        slurm_header += textwrap.dedent("""\
-#SBATCH --mail-user=yil218@aucklanduni.ac.nz
-#SBATCH --mail-type=ALL
-""")
-
     bash_lines = [
         slurm_header,
         f"# Bash script for {repeat_name}",
         "module load Python/3.11.3-gimkl-2022a",
+        "module load SAMtools"
         f"# min_depth = {min_depth}, min_var = {min_var}\n"
     ]
 
@@ -82,10 +74,11 @@ for r in range(num_repeats):
         vcf_path = os.path.join(vcf_base, f"sequenceGeneration_{repeat_name}_snp.vcf")
 
         command = (
-            f"python3 ../../sccaller_pileup.py "
+            f"python ../../sccaller_labVersion.py "
             f"--min_depth {min_depth} --minvar {min_var} "
             f"-p {pileup_path} "
             f"-f {reference} "
+            f"--engine samtools "
             f"-s {vcf_path} "
             f"-t hsnp "
             f"-o {output_vcf}"
