@@ -1,3 +1,4 @@
+import os
 from Bio import SeqIO
 
 # Mapping nucleotides to indices based on the given values
@@ -40,8 +41,8 @@ def process_fasta(gt16_fasta_path, homozygous_fasta_path):
             homozygous_file.write(f"{converted_sequence}\n")
 
 # File paths
-ref_fasta = "/home/yil218/data/10K.fna"
-homozygous_fasta = "/home/yil218/data/10K_homo.fna"
+ref_fasta = os.path.expanduser("~/data/10K.fna")
+homozygous_fasta = os.path.expanduser("~/data/10K_homo.fna")
 
 # Process the FASTA file and convert to the new format
 process_fasta(ref_fasta, homozygous_fasta)

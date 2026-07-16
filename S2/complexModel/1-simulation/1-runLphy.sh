@@ -1,0 +1,57 @@
+#!/bin/bash
+#SBATCH -J RM_runLphy
+#SBATCH --time=5:00:00
+#SBATCH --mem=4G
+#SBATCH --cpus-per-task=4
+# Paths
+lphy_dir="./lphy_scripts"
+output_dir="./lphy_scripts_slurm_jobs"
+mkdir -p "${output_dir}"
+
+# Loop through each LPhy script and create a corresponding SLURM job script
+for lphy_file in ${lphy_dir}/*.lphy; do
+    basename=$(basename "${lphy_file}")
+    id=$(echo "${basename}" | sed -E 's/.*_r([0-9]+)\.lphy/\1/')
+
+    job_script="${output_dir}/run_r${id}.sh"
+
+    cat > "${job_script}" <<EOF
+#!/bin/bash
+#SBATCH -J RM_r${id}
+#SBATCH --time=1:00:00
+#SBATCH --mem=2G
+#SBATCH -o ${output_dir}/slurm_r${id}.out
+#SBATCH -e ${output_dir}/slurm_r${id}.err
+
+module load Java/17
+
+slphy="$HOME/lphy-studio-1.7.0/bin/slphy"
+lphy_file="${lphy_file}"
+lphy_dir="./lphy_scripts"
+
+result="./simulationData"
+log="./readcount"
+nexus="./nexus"
+vcf="./vcf"
+root="./root"
+trees="./trees"
+
+mkdir -p "\${log}" "\${result}" "\${nexus}" "\${vcf}" "\${root}" "\${trees}" "\${bulk}"
+
+echo "Running simulation for r${id}..."
+\${slphy} -r 1 "\${lphy_file}"
+
+mv "\${lphy_dir}"/*.trees "\${trees}/"
+mv "\${lphy_dir}"/*A.nexus "\${nexus}/"
+mv "\${lphy_dir}"/*D.nexus "\${root}/"
+mv "\${lphy_dir}"/*.vcf "\${vcf}/"
+mv "\${lphy_dir}"/*readcount.log "\${log}/"
+mv "\${lphy_dir}"/sequenceGeneration*.log "\${result}/"
+
+echo "r${id} simulation completed."
+EOF
+
+    # Submit the job
+    sbatch "${job_script}"
+    echo "Submitted job for r${id}"
+done

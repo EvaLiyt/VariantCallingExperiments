@@ -1,2 +1,17 @@
 .DS_Store
 .Rhistory
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# SLURM job logs
+slurm-*.out
+slurm-*.err
+
+# Data outputs
+*.csv

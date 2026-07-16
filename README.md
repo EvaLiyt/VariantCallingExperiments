@@ -15,6 +15,23 @@ This is a variant calling simulation study pipeline, including realistic sequenc
 * [SCcaller v2.0.0](https://github.com/biosinodx/SCcaller)
 * [BEAST2 v2.7.8](https://www.beast2.org/)
 
+## SLURM account and personal paths
+All SLURM job scripts in this pipeline read the submitting account from the standard
+`SBATCH_ACCOUNT` environment variable rather than hardcoding one, so before submitting
+any job set your own account once per session (or add it to your shell profile):
+```
+export SBATCH_ACCOUNT=your_account_code
+```
+A few scripts also build absolute paths into your own storage (results, merged VCFs). These
+read a separate `WORK_DIR` variable holding your full personal base path, wherever that is
+on your system:
+```
+export WORK_DIR=/path/to/your/own/working/directory
+```
+Both variables will fail with a clear error message if left unset when a script needs them.
+No script needs to be edited. Paths under your own `$HOME` (installed software, reference
+data) are resolved automatically and need no configuration.
+
 ## Preparation
 ### Clone The Repos
 1. Open your terminal and navigate to your working directory.
@@ -27,11 +44,18 @@ This is a variant calling simulation study pipeline, including realistic sequenc
 1. Download human reference genome GRCh38.p14 from NCBI datasets.
 	```
 	datasets download genome accession GCF_000001405.40 --filename human_GRCh38_dataset.zip
+	unzip human_GRCh38_dataset.zip
 	```
-	Move the sequence file to data folder in home directory.
-2. Obtain 1 million sites from p-arm with `1-obtainSequence.py`.
-3. Get homozygous reference sequence as well with `2-getHomoRootSeq.py`.
-3. Calculate parameters and get Lphy scripts with `3-getLphyScripts.R`. (Or the 40 tumour cells simulation with `3-getMoreTaxaScripts.R`)
+	This unzips into `ncbi_dataset/data/GCF_000001405.40/GCF_000001405.40_GRCh38.p14_genomic.fna`.
+	Create `~/data/` if it does not already exist, then move that `.fna` file there so the path
+	`~/data/GCF_000001405.40_GRCh38.p14_genomic.fna` exists exactly as named. `1-obtainSeq.py`
+	reads this exact path.
+2. Obtain a 10,000 bp region from the p-arm with `1-obtainSeq.py`. This writes `~/data/10K.fna`,
+	which every downstream script (in every language) reads from that same path.
+3. Get the homozygous reference sequence as well with `2-getHomoRoot.py`. This writes
+	`~/data/10K_homo.fna`.
+4. Calculate parameters and get Lphy scripts with `S1/getLphyScripts.R`. (Or the 40 tumour cells
+	simulation with `S2/getMoreTaxaScripts.R`)
 
 ## Read Count Simulation
 ### Simple Model

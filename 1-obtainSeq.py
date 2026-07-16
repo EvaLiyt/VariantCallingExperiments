@@ -1,9 +1,10 @@
 
+import os
 import pysam
 
 ## file path
-input_file = ('/home/yil218/data/GCF_000001405.40_GRCh38.p14_genomic.fna')
-output_file = ("/home/yil218/data/10K.fna")
+input_file = os.path.expanduser('~/data/GCF_000001405.40_GRCh38.p14_genomic.fna')
+output_file = os.path.expanduser("~/data/10K.fna")
 
 ## read the sequence and the name
 with pysam.FastaFile(input_file) as fasta:
