@@ -38,43 +38,70 @@ def join_gt(sep: str, idxs: List[int]) -> str:
 def parse_alts(alt: str) -> List[str]:
     return [] if alt in (".", "") else alt.split(",")
 
-def remap_gt_from_no_to_target(gt_no: str, alts_no: List[str], alts_target: List[str]) -> str:
+def corroborated_alleles(row: List[str], alts_with: List[str], sample_cols: List[int]) -> set:
+    """Alleles actually variant-called by a strongly-evidenced cell at this site.
+
+    An allele is corroborated only if it appears at index >= 1 in some
+    non-missing (i.e. strongly called) cell's genotype in the strict row. An
+    allele merely listed in the ALT column but only ever called 0/0 is NOT
+    corroborated, so weak baseline calls for it must not be rescued.
+    """
+    called_idx = set()
+    for ci in sample_cols:
+        if ci >= len(row):
+            continue
+        gt = get_gt(row[ci])
+        if gt is None:
+            continue
+        try:
+            _, idxs = split_gt(gt)
+        except ValueError:
+            continue
+        called_idx.update(i for i in idxs if i >= 1)
+    return {alts_with[i - 1] for i in called_idx if i - 1 < len(alts_with)}
+
+def rescue_corroborated(gt_no: str, alts_no: List[str], alts_with: List[str],
+                        corroborated: set) -> str:
+    """Map a lenient (baseline) GT onto the strict row's alleles.
+
+    ``alts_with`` is the strict row's ALT list (the output index space, left
+    unchanged). ``corroborated`` is the subset of those alleles that some
+    strongly-called cell variant-called at this site. REF stays REF, a
+    corroborated baseline alt maps to its index in the strict row, and any other
+    baseline alt (uncorroborated, or absent from the strict row) collapses to
+    REF. No allele is ever added to the row.
+    """
     sep, idxs = split_gt(gt_no)
     new_idxs: List[int] = []
     for i in idxs:
-        if i == 0:
+        if i <= 0 or i - 1 >= len(alts_no):
             new_idxs.append(0)
             continue
-        if i - 1 < 0 or i - 1 >= len(alts_no):
-            new_idxs.append(i)
-            continue
         allele = alts_no[i - 1]
-        if allele not in alts_target:
-            alts_target.append(allele)
-        new_idxs.append(alts_target.index(allele) + 1)
+        new_idxs.append(alts_with.index(allele) + 1 if allele in corroborated else 0)
     return join_gt(sep, new_idxs)
 
-def build_target_alts(alts_with: List[str], alts_no: List[str], gt_no: str) -> List[str]:
-    _, idxs = split_gt(gt_no)
-    used: List[str] = []
-    for i in idxs:
-        if i > 0 and (i - 1) < len(alts_no):
-            used.append(alts_no[i - 1])
-    target = alts_with[:]
-    for a in used:
-        if a not in target:
-            target.append(a)
-    return target
+def gt_allele_key(gt: str, ref: str, alts: List[str]):
+    """Resolve a GT's indices to actual bases for order-independent comparison.
 
-def transform_sample_to_target(sample_no: str, alts_no: List[str], alts_target: List[str]) -> str:
-    gt_no = get_gt(sample_no)
-    if gt_no is None:
-        return sample_no
-    new_gt = remap_gt_from_no_to_target(gt_no, alts_no, alts_target)
-    if ":" in sample_no:
-        rest = sample_no.split(":", 1)[1]
-        return new_gt + ":" + rest
-    return new_gt
+    The two files order their ALT columns independently, so comparing raw index
+    strings is unreliable; this maps each index to its base. Falls back to the
+    raw GT string if it cannot be parsed (e.g. partial missingness like ``0/.``),
+    so it never raises on odd genotypes.
+    """
+    try:
+        _, idxs = split_gt(gt)
+    except ValueError:
+        return ("raw", gt)
+    bases: List[str] = []
+    for i in idxs:
+        if i == 0:
+            bases.append(ref)
+        elif 0 < i <= len(alts):
+            bases.append(alts[i - 1])
+        else:
+            bases.append(f"?{i}")
+    return ("alleles", tuple(sorted(bases)))
 
 def parse_no_vcf_index(no_path: str) -> Tuple[Dict[Tuple[str, str], List[List[str]]], List[str]]:
     index: Dict[Tuple[str, str], List[List[str]]] = {}
@@ -159,7 +186,14 @@ def process_folder(with_dir: str, no_dir: str, out_dir: str) -> None:
                     fo.write("\t".join(w) + "\n")
                     continue
 
-                # diff: log GT mismatches where both sides are non-missing
+                # the with-filter row's ALTs are the strong-evidence (corroborated)
+                # alleles at this site; the baseline orders its ALTs independently
+                alts_with = parse_alts(w[4])
+                alts_no   = parse_alts(n[4])
+                ref_n     = n[3] if len(n) > 3 else ref_w
+
+                # diff: log GT mismatches where both sides are non-missing,
+                # comparing resolved alleles rather than raw index strings
                 for sname in with_samples:
                     wi = with_name_to_idx[sname]
                     if sname not in no_name_to_idx:
@@ -169,14 +203,18 @@ def process_folder(with_dir: str, no_dir: str, out_dir: str) -> None:
                         continue
                     gt_w = get_gt(w[wi])
                     gt_n = get_gt(n[ni])
-                    if gt_w is not None and gt_n is not None and gt_w != gt_n:
+                    if gt_w is None or gt_n is None:
+                        continue
+                    if gt_allele_key(gt_w, ref_w, alts_with) != gt_allele_key(gt_n, ref_n, alts_no):
                         diff_records.append(
                             f"{fname}\t{chrom}\t{pos}\t{sname}\t{gt_w}\t{gt_n}"
                         )
 
-                # fill: patch missing-in-with from no
-                alts_with = parse_alts(w[4])
-                alts_no   = parse_alts(n[4])
+                # fill: rescue missing-in-with cells from the baseline, but only
+                # for alleles a strongly-called cell actually variant-called here
+                # (not merely listed in ALT), and never adding alleles to the row
+                corroborated = corroborated_alleles(
+                    w, alts_with, [with_name_to_idx[s] for s in with_samples])
 
                 for sname in with_samples:
                     wi = with_name_to_idx[sname]
@@ -192,10 +230,11 @@ def process_folder(with_dir: str, no_dir: str, out_dir: str) -> None:
                         gt_no = get_gt(cell_n)
                         if gt_no is None:
                             continue
-                        target_alts = build_target_alts(parse_alts(w[4]), alts_no, gt_no)
-                        new_sample  = transform_sample_to_target(cell_n, alts_no, target_alts)
-                        w[4]  = ",".join(target_alts) if target_alts else "."
-                        w[wi] = new_sample
+                        new_gt = rescue_corroborated(gt_no, alts_no, alts_with, corroborated)
+                        if ":" in cell_n:
+                            w[wi] = new_gt + ":" + cell_n.split(":", 1)[1]
+                        else:
+                            w[wi] = new_gt
 
                 fo.write("\t".join(w) + "\n")
 
